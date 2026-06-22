@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart'; 
 import 'edit_profile_page.dart'; 
 import 'order_history_page.dart';
+import 'wishlist_page.dart';
 import '../services/notification_service.dart'; 
 import 'package:permission_handler/permission_handler.dart';
+import '../widgets/notification_bell.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userId;
@@ -325,9 +327,9 @@ class _ProfilePageState extends State<ProfilePage> {
         elevation: 0,
         foregroundColor: colorPrimary,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () {},
+          NotificationBell(
+            userId: widget.userId, // 🌟 Replace this variable with your session's user ID logic (e.g., user.id or shared preferences tracker)
+            iconColor: colorPrimary,
           ),
         ],
       ),
@@ -346,6 +348,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildRemindersCard(),
                       const SizedBox(height: 16),
                       _buildRecentOrders(),
+                      const SizedBox(height: 16),
+                      _buildWishlist(colorOnSurface),
                       const SizedBox(height: 16),
                       _buildActionButtons(colorOnSurface),
                     ],
@@ -757,6 +761,40 @@ class _ProfilePageState extends State<ProfilePage> {
           const Icon(Icons.chevron_right, color: Colors.grey),
         ],
       ),
+    );
+  }
+
+  Widget _buildWishlist(Color colorOnSurface) {
+    return Column(
+      children: [
+        ElevatedButton(
+          // 🌟 UPDATED: Triggers a clean Material route animation to the wishlist screen
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => WishlistPage(userId: widget.userId),
+              ),
+            );
+          }, 
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFE8E8E5),
+            foregroundColor: colorOnSurface,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Row( // Note: Removed 'const' from Row if icons/text are structural, or leave if static
+            children: const [
+              Icon(Icons.favorite_rounded, color: Colors.red,), // 💡 Pro-tip: Changed help icon to a heart!
+              SizedBox(width: 12),
+              Text("Wishlist", style: TextStyle(fontWeight: FontWeight.bold)),
+              Spacer(),
+              Icon(Icons.chevron_right, size: 16),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

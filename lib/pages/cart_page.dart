@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'mock_payment_page.dart';
+import '../widgets/notification_bell.dart';
+import 'product_page.dart'; 
 
 class CartPage extends StatefulWidget {
   final String userId;
@@ -31,13 +33,19 @@ class _CartPageState extends State<CartPage> {
   }
 
   // 🛑 Pop-up confirmation asking the user if they actually want to delete the item
-  Future<bool> _showDeleteConfirmation(String productName) async {
+  Future<bool> _showDeleteConfirmation(String productBrand, String productName) async {
     return await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Remove Item?"),
-          content: Text("Are you sure you want to remove '$productName' from your cart?"),
+          title: const Text(
+            "Remove Item?",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Plus Jakarta Sans', // Keeping it aligned with your project's aesthetic
+            ),
+          ),
+          content: Text("Are you sure you want to remove $productBrand $productName from your cart?"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false), // Returns false
@@ -115,6 +123,12 @@ class _CartPageState extends State<CartPage> {
         backgroundColor: colorSurface,
         elevation: 0,
         foregroundColor: colorOnSurface,
+        actions: [
+          NotificationBell(
+            userId: widget.userId, // 🌟 Replace this variable with your session's user ID logic (e.g., user.id or shared preferences tracker)
+            iconColor: colorPrimary,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: colorPrimary))
@@ -154,102 +168,228 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildCartItem(Map<String, dynamic> item, int index, Color colorPrimary) {
-    final double itemPrice = double.parse(item['product_price'].toString());
+  Widget _buildCartItem(Map<String, dynamic> item, int index, Color colorPrimary) {    
+    final double itemPrice = double.tryParse(item['product_price'].toString()) ?? 0.0;
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8E8E5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.image, color: Colors.grey, size: 40),
-          ),
-          const SizedBox(width: 16),
-          
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item['product_name'] ?? "Product",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Plus Jakarta Sans'),
-                ),
-                // Text(
-                //   // 🎨 Dynamically mapping category to a subtitle to keep your clean aesthetic
-                //   "${item['product_category'] ?? 'General'} Skincare",
-                //   style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
-                // ),
-                const SizedBox(height: 10),
-                
-                Row(
-                  children: [
-                    _iconButton(Icons.remove, () async {
-                      final cartId = item['id'].toString();
+    // Assemble image URL matching ApiService structure definitions
+    final String rawImage = item['product_image'] ?? item['image'] ?? '';
+    String imageTarget = '';
+    if (rawImage.isNotEmpty) {
+      imageTarget = rawImage.startsWith('http') ? rawImage : '${ApiService.mediaUrl}$rawImage';
+    }
 
-                      if (item['quantity'] > 1) {
-                        final newQty = item['quantity'] - 1;
-                        
-                        // Optimistically update UI
-                        setState(() => item['quantity'] = newQty);
-                        
-                        // Silently update database in the background
-                        await ApiService.updateCartQuantity(widget.userId, cartId, newQty);
-                        
-                      } else {
-                        // 🔥 Triggers the pop-up prompt!
-                        final shouldDelete = await _showDeleteConfirmation(item['product_name'] ?? 'this item');
-                        
-                        if (shouldDelete && mounted) {
-                          final response = await ApiService.deleteCartItem(widget.userId, cartId);
-                          
-                          if (response['status'] == 'success') {
-                            setState(() {
-                              _cartItems.removeAt(index);
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Item removed from cart')),
-                            );
-                          }
-                        }
-                      }
-                    }),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text("${item['quantity']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+    // Process BRAND Product Name formatting
+    final String rawBrand = item['brand'] ?? item['product_brand'] ?? '';
+    final String rawName = item['product_name'] ?? 'Essential Product';
+    final String displayBrand = rawBrand.isNotEmpty ? "${rawBrand.toUpperCase()} " : "";
+
+    final String rawSkinType = item['skin_suitability'] ?? 'All';
+
+    // Translate database strings dynamically to your stylized editorial format strings
+    String skinTypeDisplay = "ALL SKIN TYPES";
+    if (rawSkinType.toLowerCase() == 'combination') {
+      skinTypeDisplay = "COMBINATION SKIN";
+    } else if (rawSkinType.toLowerCase() == 'oily') {
+      skinTypeDisplay = "OILY SKIN";
+    } else if (rawSkinType.toLowerCase() == 'dry') {
+      skinTypeDisplay = "DRY SKIN";
+    } else if (rawSkinType.toLowerCase() == 'sensitive') {
+      skinTypeDisplay = "SENSITIVE SKIN";
+    } else if (rawSkinType.isNotEmpty && rawSkinType.toLowerCase() != 'all') {
+      skinTypeDisplay = "${rawSkinType.toUpperCase()} SKIN";
+    }
+
+    // 🌟 EXTRACT PRODUCT ID SAFELY (Handles nested or flat payload maps)
+  final String prodId = item['product_id']?.toString() ?? item['id']?.toString() ?? '';
+
+    // 🌟 WRAP THE CARD IN A GESTURDECTOR FOR PAGE NAVIGATION LINKING
+    return GestureDetector(
+      onTap: () async {
+        if (prodId.isNotEmpty) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductPage(
+                userId: widget.userId, 
+                productId: prodId,
+              ),
+            ),
+          );
+          
+          // 🌟 Refresh your cart array when returning back to this page 
+          // to make sure pricing and items match backend database realities
+          _fetchCart(); 
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24), // Elegant rounded corners
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2E2F2D).withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 12),
+            )
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 🖼️ Product Preview Image Frame
+            Container(
+              width: 85,
+              height: 85,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F1EE),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: imageTarget.isNotEmpty
+                    ? Image.network(
+                        imageTarget,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => 
+                            Icon(Icons.broken_image_outlined, color: colorPrimary.withOpacity(0.4)),
+                      )
+                    : Icon(Icons.image, color: colorPrimary.withOpacity(0.4)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            
+            // Metadata Column Matrix
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 🏷️ BRAND Product Name with Text.rich styling
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: displayBrand,
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E2F2D),
+                            fontSize: 14,
+                          ),
+                        ),
+                        TextSpan(
+                          text: rawName,
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E2F2D),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                    _iconButton(Icons.add, () async {
-                      final cartId = item['id'].toString();
-                      final newQty = item['quantity'] + 1;
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  
+                  // 🗂️ Product Category Display
+                  Text(
+                    item['product_category'] ?? item['category'] ?? 'The Essentials',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: Color(0xFF5B5C5A),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
 
-                      // Optimistically update UI
-                      setState(() => item['quantity'] = newQty);
+                  // 🌟 THE NEW SKIN TYPE TAG CHIP
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F1EE), // Subtle grey-beige tag background
+                      borderRadius: BorderRadius.circular(6), // Structured mini-capsule rounding
+                    ),
+                    child: Text(
+                      skinTypeDisplay,
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 9, // Small, clean editorial micro-typography
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: Color(0xFF5B5C5A), // Soft readable contrast text formatting
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+                  
+                  // 🔢 Quantity Picker Row Setup
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          _iconButton(Icons.remove, () async {
+                            final cartId = item['id'].toString();
+                            final currentQty = int.tryParse(item['quantity'].toString()) ?? 1;
+
+                            if (currentQty > 1) {
+                              final newQty = currentQty - 1;
+                              setState(() => item['quantity'] = newQty);
+                              await ApiService.updateCartQuantity(widget.userId, cartId, newQty);
+                            } else {
+                              final shouldDelete = await _showDeleteConfirmation(displayBrand, rawName);
+                              if (shouldDelete && mounted) {
+                                final response = await ApiService.deleteCartItem(widget.userId, cartId);
+                                if (response['status'] == 'success') {
+                                  setState(() {
+                                    _cartItems.removeAt(index);
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Item removed from cart')),
+                                  );
+                                }
+                              }
+                            }
+                          }),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Text(
+                              "${item['quantity']}", 
+                              style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold, fontSize: 14)
+                            ),
+                          ),
+                          _iconButton(Icons.add, () async {
+                            final cartId = item['id'].toString();
+                            final currentQty = int.tryParse(item['quantity'].toString()) ?? 1;
+                            final newQty = currentQty + 1;
+
+                            setState(() => item['quantity'] = newQty);
+                            await ApiService.updateCartQuantity(widget.userId, cartId, newQty);
+                          }),
+                        ],
+                      ),
                       
-                      // Save to database
-                      await ApiService.updateCartQuantity(widget.userId, cartId, newQty);
-                    }),
-                  ],
-                )
-              ],
+                      // 💰 2-Decimal Formatted Price Tag
+                      Text(
+                        "RM ${(itemPrice).toStringAsFixed(2)}",
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          color: colorPrimary, 
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 16
+                        ),
+                      )
+                    ],
+                  )
+                ],
+              ),
             ),
-          ),
-          
-          Text(
-            "RM ${itemPrice.toStringAsFixed(2)}",
-            style: TextStyle(color: colorPrimary, fontWeight: FontWeight.bold, fontSize: 18, fontFamily: 'Plus Jakarta Sans'),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }

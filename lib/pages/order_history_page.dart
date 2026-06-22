@@ -16,6 +16,20 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   List<dynamic> _orders = [];
   bool _isLoading = true;
 
+  // 🏷️ Track the currently active filter tab
+  String _selectedTab = 'All';
+
+  // Define the master list of available category options
+  final List<String> _tabs = [
+    'All',
+    'Processing',
+    'In Transit',
+    'Delivered',
+    'Completed',
+    'Refund',
+    'Cancelled'
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -37,10 +51,43 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     }
   }
 
+  // 🔍 Filter Logic: Matches your custom tabs against exact database status strings
+  List<dynamic> _getFilteredOrders() {
+    if (_selectedTab == 'All') {
+      return _orders;
+    }
+    
+    return _orders.where((order) {
+      final String status = (order['status'] ?? '').toString().trim();
+      
+      switch (_selectedTab) {
+        case 'Processing':
+          return status == 'Processing';
+        case 'In Transit':
+          return status == 'In Transit';
+        case 'Delivered':
+          return status == 'Delivered';
+        case 'Completed':
+          return status == 'Completed' || status == 'Received';
+        case 'Refund':
+          // Groups all lifecycle steps of returns together neatly
+          return status == 'Refund Processing' || 
+                 status == 'Refunded' || 
+                 status == 'Refund Rejected';
+        case 'Cancelled':
+          return status == 'Cancelled';
+        default:
+          return false;
+      }
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     const colorPrimary = Color(0xFF91462E);
     const colorSurface = Color(0xFFF7F6F3);
+
+    final filteredOrders = _getFilteredOrders();
 
     return Scaffold(
       backgroundColor: colorSurface,
@@ -54,30 +101,116 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         elevation: 0,
         foregroundColor: colorPrimary,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: colorPrimary))
-          : _orders.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
-                  itemCount: _orders.length,
-                  itemBuilder: (context, index) {
-                    final order = _orders[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OrderDetailsPage(
-                              orderId: order['order_id'].toString(), // Safely pass it as a string
-                            ),
-                          ),
-                        );
-                      },
-                      child: _buildOrderCard(order, colorPrimary),
-                    );
-                  },
+      // body: _isLoading
+      //     ? const Center(child: CircularProgressIndicator(color: colorPrimary))
+      //     : _orders.isEmpty
+      //         ? _buildEmptyState()
+      //         : ListView.builder(
+      //             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+      //             itemCount: _orders.length,
+      //             itemBuilder: (context, index) {
+      //               final order = _orders[index];
+      //               return GestureDetector(
+      //                 onTap: () {
+      //                   Navigator.push(
+      //                     context,
+      //                     MaterialPageRoute(
+      //                       builder: (context) => OrderDetailsPage(
+      //                         orderId: order['order_id'].toString(), // Safely pass it as a string
+      //                       ),
+      //                     ),
+      //                   );
+      //                 },
+      //                 child: _buildOrderCard(order, colorPrimary),
+      //               );
+      //             },
+      //           ),
+      body: Column(
+        children: [
+          // 🗂️ Horizontal Filter Bar Section
+          _buildFilterBar(colorPrimary),
+          
+          // 📦 Orders Display Area
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: colorPrimary))
+                : filteredOrders.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+                        itemCount: filteredOrders.length,
+                        itemBuilder: (context, index) {
+                          final order = filteredOrders[index];
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => OrderDetailsPage(
+                                    orderId: order['order_id'].toString(),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: _buildOrderCard(order, colorPrimary),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🛠️ Widget Builder: Horizontal Scrollable Status Tabs
+  Widget _buildFilterBar(Color colorPrimary) {
+    return Container(
+      height: 50,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _tabs.length,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemBuilder: (context, index) {
+          final tabName = _tabs[index];
+          final bool isSelected = _selectedTab == tabName;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: ChoiceChip(
+              label: Text(
+                tabName.toUpperCase(),
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : Colors.black54,
                 ),
+              ),
+              selected: isSelected,
+              selectedColor: colorPrimary,
+              backgroundColor: Colors.white,
+              checkmarkColor: Colors.white,
+              showCheckmark: false, // Clean setup without check icons
+              shadowColor: Colors.transparent,
+              selectedShadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected ? colorPrimary : Colors.black12,
+                ),
+              ),
+              onSelected: (bool selected) {
+                if (selected) {
+                  setState(() {
+                    _selectedTab = tabName;
+                  });
+                }
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -88,13 +221,13 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         children: [
           Icon(Icons.shopping_bag_outlined, size: 60, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          const Text(
-            "No orders yet",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+          Text(
+            _selectedTab == 'All' ? "No orders yet" : "No orders in $_selectedTab",
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
           ),
           const SizedBox(height: 8),
           const Text(
-            "Your order history will appear here.",
+            "Your filtered order lifecycle updates show up right here.",
             style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
@@ -103,16 +236,52 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order, Color colorPrimary) {
-    bool isDelivered = order['status'] == 'Delivered';
-    bool inTransit = order['status'] == 'In Transit';
-    bool isRefunded = order['status'] == 'Refunded';
-    bool isProcessing = order['status'] == 'Refund Processing';
+    final String currentStatus = (order['status'] ?? '').toString();
+
+    bool isDelivered = currentStatus == 'Delivered';
+    bool inTransit = currentStatus == 'In Transit';
+    bool isProcessing = currentStatus == 'Processing';
+    bool isCompleted = currentStatus == 'Completed' || currentStatus == 'Received';
+    bool isCancelled = currentStatus == 'Cancelled';
     
-    // Convert extracted item count to integer safely
+    // Sub-status checks grouped under the parent 'Refund' banner
+    bool isRefundProcessing = currentStatus == 'Refund Processing';
+    bool isRefunded = currentStatus == 'Refunded';
+    bool isRefundRejected = currentStatus == 'Refund Rejected';
+
     int totalItems = order['total_items'] ?? 0;
     String shipping = order['shipping_fee'] ?? '0.00';
-
     bool isFreeShipping = (shipping == "FREE" || shipping == "0.00" || shipping == "0");
+
+    // 🎨 Dynamic layout context styling engine
+    Color statusColor = Colors.grey;
+    IconData cardIcon = Icons.shopping_basket_outlined;
+
+    if (isProcessing) {
+      statusColor = Colors.grey;
+      cardIcon = Icons.cached_outlined;
+    } else if (inTransit) {
+      statusColor = Colors.orange;
+      cardIcon = Icons.local_shipping_outlined;
+    } else if (isDelivered) {
+      statusColor = Colors.green;
+      cardIcon = Icons.card_giftcard_outlined;
+    } else if (isCompleted) {
+      statusColor = colorPrimary;
+      cardIcon = Icons.check_circle_outline;
+    } else if (isRefundProcessing) {
+      statusColor = Colors.orange;
+      cardIcon = Icons.history_outlined;
+    } else if (isRefunded) {
+      statusColor = Colors.green;
+      cardIcon = Icons.assignment_return_outlined;
+    } else if (isRefundRejected) {
+      statusColor = Colors.grey;
+      cardIcon = Icons.block_outlined;
+    } else if (isCancelled) {
+      statusColor = Colors.grey;
+      cardIcon = Icons.cancel_outlined;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -125,10 +294,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         children: [
           Row(
             children: [
-              Icon(
-                isProcessing ? Icons.history_outlined : (inTransit ? Icons.local_shipping_outlined : Icons.shopping_basket_outlined), 
-                color: isProcessing ? Colors.orange : colorPrimary
-              ),
+              Icon(cardIcon, color: statusColor),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -139,19 +305,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 4),
-                    // 💡 UPGRADED SUBTITLE: Now shows status, date, AND physical item count!
                     Text(
                       "${order['status']} • ${order['date']} • $totalItems ${totalItems == 1 ? 'item' : 'items'}",
                       style: TextStyle(
-                        color: isProcessing || inTransit 
-                            ? Colors.orange 
-                            : (isDelivered ? Colors.green : (isRefunded ? Colors.red : Colors.grey)), 
+                        color: statusColor, 
                         fontSize: 12,
-                        fontWeight: inTransit || isDelivered || isRefunded ? FontWeight.bold : FontWeight.normal
+                        fontWeight: !isProcessing && !isCancelled ? FontWeight.normal : FontWeight.normal
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // 💡 SHIPPING TAG: Neatly renders Free shipping vs paid amounts
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -171,7 +333,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 ),
               ),
               Text(
-                order['price'],
+                order['price'] ?? 'RM 0.00',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const SizedBox(width: 4),
@@ -179,14 +341,13 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             ],
           ),
           
-          // 🛑 Shows choice buttons ONLY when physical drop-off is complete!
+          // Action triggers are only relevant when an item is safely checked out but not yet locked
           if (isDelivered) ...[
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 4),
             Row( 
               children: [
-                // 1. RETURN & REFUND BUTTON
                 Expanded(
                   child: SizedBox(
                     height: 36,
@@ -207,23 +368,12 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                
-                // 2. CONFIRM RECEIVED BUTTON
                 Expanded(
                   child: SizedBox(
                     height: 36,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        final response = await ApiService.completeOrder(widget.userId, order['order_id'].toString());
-                        
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(response['message'] ?? 'Action performed')),
-                          );
-                          if (response['status'] == 'success') {
-                            _loadOrders(); 
-                          }
-                        }
+                      onPressed: () {
+                        _showConfirmReceivedDialog(order['order_id'].toString(), colorPrimary);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorPrimary,
@@ -248,13 +398,66 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     );
   }
 
+  // 🛡️ Safety confirmation guard to ensure completion cannot be undone
+  void _showConfirmReceivedDialog(String orderId, Color colorPrimary) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            "Confirm Order Delivery?",
+            style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "Are you sure you have received all items for Order #$orderId? This will complete your order cycle and cannot be undone.",
+            style: const TextStyle(fontFamily: 'Manrope', fontSize: 14, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("CANCEL", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog overlay
+                
+                // Set global state to processing loading metrics if needed
+                final response = await ApiService.completeOrder(widget.userId, orderId);
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(response['message'] ?? 'Order update completed'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  if (response['status'] == 'success') {
+                    _loadOrders(); // Refresh screen view to lock buttons
+                  }
+                }
+              },
+              child: Text(
+                "YES, CONFIRM", 
+                style: TextStyle(color: colorPrimary, fontWeight: FontWeight.bold)
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // A quick helper to prompt users about firing a refund request
   void _showRefundConfirmation(String orderId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Request Refund?"),
+          title: const Text(
+            "Request Refund?",
+            style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold),
+            ),
           content: Text("Are you sure you want to request a refund for Order #$orderId? You will need to select items and provide proof."),
           actions: [
             TextButton(

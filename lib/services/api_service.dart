@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import '../pages/login_page.dart';
 
 class ApiService {
-  static String baseUrl = "http://10.0.2.2/skinmate_api";
+  // static String baseUrl = "http://10.0.2.2/skinmate_api";
+  // static const String mediaUrl = "http://10.0.2.2/skinmate_api/images/";
+  static String baseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api";
+  static const String mediaUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/images/";
   // static String baseUrl = "http://192.168.101.170/skinmate_api";
   // static String baseUrl = "http://192.168.0.22/skinmate_api";
   
@@ -151,9 +154,40 @@ class ApiService {
   // PRODUCTS
   // ========================
 
-  static Future getProducts() async {
-    final res = await http.get(Uri.parse('$baseUrl/get_products.php'));
-    return json.decode(res.body);
+  // static Future getProducts() async {
+  //   final res = await http.get(Uri.parse('$baseUrl/get_products.php'));
+  //   return json.decode(res.body);
+  // }
+
+  static Future<Map<String, dynamic>> getProducts() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/get_products.php'))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(res.body);
+
+        if (data['status'] == 'success' && data['products'] != null) {
+          for (var product in data['products']) {
+            // Force strict mobile type casting
+            product['price'] = double.tryParse(product['price'].toString()) ?? 0.0;
+            product['stock_quantity'] = int.tryParse(product['stock_quantity'].toString()) ?? 0;
+
+            // Assemble the full host path for direct rendering in NetworkImage components
+            if (product['image'] != null && product['image'].toString().isNotEmpty) {
+              product['image_url'] = '$mediaUrl${product['image']}';
+            } else {
+              product['image_url'] = '${mediaUrl}placeholder-default.png';
+            }
+          }
+        }
+        return data;
+      } else {
+        return {'status': 'error', 'message': 'Server error: ${res.statusCode}', 'products': []};
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': 'Network failure: $e', 'products': []};
+    }
   }
 
   static Future addWishlist(String userId, String productId) async {
@@ -164,9 +198,51 @@ class ApiService {
     return json.decode(res.body);
   }
 
-  static Future getWishlist(String userId) async {
-    final res = await http.get(Uri.parse('$baseUrl/get_wishlist.php?user_id=$userId'));
-    return json.decode(res.body);
+  static Future<Map<String, dynamic>> getWishlist(String userId) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/get_wishlist.php?user_id=$userId'))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(res.body);
+
+        // 🌟 THE FIX: Loop through wishlist items and map the keys exactly like getProducts()
+        if (data['status'] == 'success' && data['wishlist'] != null) {
+          for (var item in data['wishlist']) {
+            // Keep your type mutations synchronized
+            item['price'] = double.tryParse(item['price'].toString()) ?? 0.0;
+
+            // Assemble the full host path for direct rendering in NetworkImage components
+            if (item['image'] != null && item['image'].toString().isNotEmpty) {
+              item['image_url'] = '$mediaUrl${item['image']}';
+            } else {
+              item['image_url'] = '${mediaUrl}placeholder-default.png';
+            }
+          }
+        }
+        return data;
+      } else {
+        return {'status': 'error', 'message': 'Server error: ${res.statusCode}', 'wishlist': []};
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': 'Network failure: $e', 'wishlist': []};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteWishlist(String userId, String productId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/delete_wishlist.php'),
+        body: {
+          'user_id': userId, 
+          'product_id': productId,
+        },
+      ).timeout(const Duration(seconds: 10));
+      
+      return json.decode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'status': 'error', 'message': 'Wishlist removal connection timeout.'};
+    }
   }
 
   static Future addReview(String userId, String productId, String review, int rating) async {
@@ -194,25 +270,41 @@ class ApiService {
   static Future<Map<String, dynamic>> getCart(String userId) async {
     try {
       var response = await http.get(
-        Uri.parse('http://10.0.2.2/skinmate_api/get_cart.php?user_id=$userId'),
+        Uri.parse('$baseUrl/get_cart.php?user_id=$userId'),
         // Uri.parse('http://192.168.101.170/skinmate_api/get_cart.php?user_id=$userId'),
         // Uri.parse('http://192.168.0.22/skinmate_api/get_cart.php?user_id=$userId'),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        
+        // 🌟 THE FIX: Map image keys dynamically so the frontend layout renders them instantly!
+        if (data['status'] == 'success' && data['cart'] != null) {
+          for (var item in data['cart']) {
+            final String rawImg = item['product_image'] ?? item['image'] ?? '';
+            
+            if (rawImg.isNotEmpty && !rawImg.startsWith('http')) {
+              // Automatically strips an accidental leading slash if stored in the database row string
+              final cleanRawImg = rawImg.startsWith('/') ? rawImg.substring(1) : rawImg;
+              
+              // Appends your global API media base path context directory structure
+              item['product_image'] = '$mediaUrl$cleanRawImg';
+            }
+          }
+        }
+        return data;
       } else {
-        return {'status': 'error', 'message': 'Server error ${response.statusCode}'};
+        return {'status': 'error', 'message': 'Server error ${response.statusCode}', 'cart': []};
       }
     } catch (e) {
-      return {'status': 'error', 'message': e.toString()};
+      return {'status': 'error', 'message': e.toString(), 'cart': []};
     }
   }
 
   static Future<Map<String, dynamic>> updateCartQuantity(String userId, String cartId, int quantity) async {
     try {
       var response = await http.post(
-        Uri.parse('http://10.0.2.2/skinmate_api/update_cart_quantity.php'),
+        Uri.parse('$baseUrl/update_cart_quantity.php'),
         // Uri.parse('http://192.168.101.170/skinmate_api/update_cart_quantity.php'),
         // Uri.parse('http://192.168.0.22/skinmate_api/update_cart_quantity.php'),
         headers: {'Content-Type': 'application/json'},
@@ -233,10 +325,37 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> addToCart({
+    required String userId,
+    required String productId,
+    required String productName,
+    required String productPrice,
+    required String productImage,
+    required int quantity,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/add_to_cart.php'),
+        body: {
+          'user_id': userId,
+          'product_id': productId,
+          'product_name': productName,
+          'product_price': productPrice,
+          'product_image': productImage,
+          'quantity': quantity.toString(),
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      return json.decode(res.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Network failure: $e'};
+    }
+  }
+
   static Future<Map<String, dynamic>> deleteCartItem(String userId, String cartId) async {
     try {
       var response = await http.post(
-        Uri.parse('http://10.0.2.2/skinmate_api/delete_cart_item.php'),
+        Uri.parse('$baseUrl/delete_cart_item.php'),
         // Uri.parse('http://192.168.101.170/skinmate_api/delete_cart_item.php'),
         // Uri.parse('http://192.168.0.22/skinmate_api/delete_cart_item.php'),
         headers: {'Content-Type': 'application/json'},
@@ -267,6 +386,8 @@ class ApiService {
     required double discount,
     required String shippingFee,
     required double finalTotal,
+    required String name,
+    required String phone,
     required String addressLine1,
     String? addressLine2,
     required String postcode,
@@ -276,7 +397,7 @@ class ApiService {
   }) async {
     try {
       var response = await http.post(
-        Uri.parse('http://10.0.2.2/skinmate_api/checkout.php'),
+        Uri.parse('$baseUrl/checkout.php'),
         // Uri.parse('http://192.168.101.170/skinmate_api/checkout.php'),
         // Uri.parse('http://192.168.0.22/skinmate_api/checkout.php'),
         headers: {'Content-Type': 'application/json'},
@@ -292,6 +413,8 @@ class ApiService {
           'city': city,
           'state': state,
           'region': region,
+          'phone': phone,
+          'name': name,
         }),
       );
 
@@ -330,7 +453,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getOrders(String userId) async {
     try {
       var response = await http.get(
-        Uri.parse('http://10.0.2.2/skinmate_api/get_orders.php?user_id=$userId'),
+        Uri.parse('$baseUrl/get_orders.php?user_id=$userId'),
         // Uri.parse('http://192.168.101.170/skinmate_api/get_orders.php?user_id=$userId'),
         // Uri.parse('http://192.168.0.22/skinmate_api/get_orders.php?user_id=$userId'),
       );
@@ -356,7 +479,7 @@ class ApiService {
   static Future<Map<String, dynamic>> completeOrder(String userId, String orderId) async {
     try {
       var response = await http.post(
-        Uri.parse('http://10.0.2.2/skinmate_api/complete_order.php'),
+        Uri.parse('$baseUrl/complete_order.php'),
         // Uri.parse('http://192.168.101.170/skinmate_api/complete_order.php'),
         // Uri.parse('http://192.168.0.22/skinmate_api/complete_order.php'),
         headers: {'Content-Type': 'application/json'},
@@ -379,7 +502,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getOrderDetails(String orderId) async {
     try {
       var response = await http.get(
-        Uri.parse('http://10.0.2.2/skinmate_api/get_order_details.php?order_id=$orderId'),
+        Uri.parse('$baseUrl/get_order_details.php?order_id=$orderId'),
         // Uri.parse('http://192.168.101.170/skinmate_api/get_order_details.php?order_id=$orderId'),
         // Uri.parse('http://192.168.0.22/skinmate_api/get_order_details.php?order_id=$orderId'),
       );
@@ -456,7 +579,7 @@ class ApiService {
   ) async {
     try {
       final response = await http.post(
-        Uri.parse('http://10.0.2.2/skinmate_api/update_profile.php'),
+        Uri.parse('$baseUrl/update_profile.php'),
         // Uri.parse('http://192.168.101.170/skinmate_api/update_profile.php'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
@@ -528,7 +651,7 @@ class ApiService {
     required double amount,
     required File file,
   }) async {
-    var request = http.MultipartRequest('POST', Uri.parse('http://10.0.2.2/skinmate_api/submit_refund.php'));
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/submit_refund.php'));
     
     request.fields.addAll({
       'order_id': orderId,

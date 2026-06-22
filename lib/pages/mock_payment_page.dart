@@ -21,6 +21,10 @@ class MockPaymentPage extends StatefulWidget {
 class _MockPaymentPageState extends State<MockPaymentPage> {
   final _formKey = GlobalKey<FormState>();
   final _cardNumberController = TextEditingController();
+
+  final _nameController = TextEditingController();
+
+  final _phoneController = TextEditingController();
   
   bool _isProcessing = false;
   String? _selectedState;
@@ -39,7 +43,7 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
 
   // 🚚 2. Shipping Math Rules (Now checks amount AFTER discount!)
   double get _shippingFee {
-    if (_amountAfterDiscount >= 250.00) return 0.00; // Free over RM250 after discount!
+    if (_amountAfterDiscount >= 100.00) return 0.00; // Free over RM100 after discount!
     if (_selectedState == null) return 0.00;
     
     return _eastMalaysia.contains(_selectedState) ? 15.00 : 10.00;
@@ -53,8 +57,90 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
   final _postcodeController = TextEditingController();
   final _cityController = TextEditingController();
 
+  // void _simulatePayment() async {
+  //   if (!_formKey.currentState!.validate()) return;
+
+  //   setState(() => _isProcessing = true);
+  //   await Future.delayed(const Duration(seconds: 3));
+
+  //   final cleanCardNumber = _cardNumberController.text.replaceAll(' ', '');
+  //   const successVisa = "4242424242424242";
+  //   const successMastercard = "5555555555554444";
+
+  //   if (cleanCardNumber == successVisa || cleanCardNumber == successMastercard) {
+      
+  //     // 🌟 THE FIX: Always pass a clean numeric text token over the wire (e.g. "0.00")
+  //     // This stops SQL Decimal column calculation validation routines from breaking!
+  //     String shippingFeeStr = _shippingFee.toStringAsFixed(2);
+  //     String region = _eastMalaysia.contains(_selectedState) ? "East Malaysia" : "West Malaysia";
+
+  //     final response = await ApiService.checkout(
+  //       userId: widget.userId,
+  //       subtotal: widget.cartSubtotal,
+  //       discount: widget.discount, 
+  //       shippingFee: shippingFeeStr, // Safely formatted numeric string
+  //       finalTotal: _finalGrandTotal, 
+  //       addressLine1: _addr1Controller.text.trim(),
+  //       addressLine2: _addr2Controller.text.trim().isEmpty ? null : _addr2Controller.text.trim(),
+  //       postcode: _postcodeController.text.trim(),
+  //       city: _cityController.text.trim(),
+  //       state: _selectedState!,
+  //       region: region,
+  //     );
+
+  //     if (mounted) {
+  //       setState(() => _isProcessing = false);
+  //       if (response['status'] == 'success') {
+  //         _showResultDialog(
+  //           true, 
+  //           "Transaction Approved!", 
+  //           "Order ${response['order_id']} placed successfully."
+  //         );
+  //       } else {
+  //         _showResultDialog(
+  //           false, 
+  //           "System Error", 
+  //           response['message'] ?? "Checkout failed."
+  //         );
+  //       }
+  //     }
+  //   } else {
+  //     setState(() => _isProcessing = false);
+  //     _showResultDialog(
+  //       false, 
+  //       "Card Declined", 
+  //       "The card number was rejected by the mock bank. Try using 4242 4242 4242 4242."
+  //     );
+  //   }
+  // }
+
   void _simulatePayment() async {
+    // 1. Kick off the primary Form validation check
     if (!_formKey.currentState!.validate()) return;
+
+    // 🛑 SAFETY GUARD: Ensure a state is explicitly selected to prevent address mismatch anomalies
+    if (_selectedState == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select a valid Malaysian State to compute logistics.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red[700],
+        ),
+      );
+      return;
+    }
+
+    final String rawPhoneInput = _phoneController.text.trim();
+    if (rawPhoneInput.length < 9 || rawPhoneInput.length > 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter a valid phone number (9 or 10 digits).'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red[700],
+        ),
+      );
+      return;
+    }
 
     setState(() => _isProcessing = true);
     await Future.delayed(const Duration(seconds: 3));
@@ -65,16 +151,20 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
 
     if (cleanCardNumber == successVisa || cleanCardNumber == successMastercard) {
       
-      // 🚚 Grab the string for the database!
-      String shippingFeeStr = _shippingFee == 0.00 ? "FREE" : _shippingFee.toStringAsFixed(2);
+      // Pass numeric text tokens safely across the network channel
+      String shippingFeeStr = _shippingFee.toStringAsFixed(2);
       String region = _eastMalaysia.contains(_selectedState) ? "East Malaysia" : "West Malaysia";
+
+      final String finalFormattedPhone = "+60$rawPhoneInput";
 
       final response = await ApiService.checkout(
         userId: widget.userId,
         subtotal: widget.cartSubtotal,
-        discount: widget.discount, // 👈 Pulling it directly from widget.discount
-        shippingFee: shippingFeeStr,
-        finalTotal: _finalGrandTotal, // 👈 Uses the new getter (after discount + shipping)
+        discount: widget.discount, 
+        shippingFee: shippingFeeStr, 
+        finalTotal: _finalGrandTotal, 
+        name: _nameController.text.trim(),
+        phone: finalFormattedPhone,
         addressLine1: _addr1Controller.text.trim(),
         addressLine2: _addr2Controller.text.trim().isEmpty ? null : _addr2Controller.text.trim(),
         postcode: _postcodeController.text.trim(),
@@ -86,14 +176,26 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
       if (mounted) {
         setState(() => _isProcessing = false);
         if (response['status'] == 'success') {
-          _showResultDialog(true, "Transaction Approved!", "Order #${response['order_id']} placed successfully.");
+          _showResultDialog(
+            true, 
+            "Transaction Approved!", 
+            "Order ${response['order_id']} placed successfully. A receipt has been sent to your registered email."
+          );
         } else {
-          _showResultDialog(false, "System Error", response['message'] ?? "Checkout failed.");
+          _showResultDialog(
+            false, 
+            "System Error", 
+            response['message'] ?? "Checkout failed."
+          );
         }
       }
     } else {
       setState(() => _isProcessing = false);
-      _showResultDialog(false, "Card Declined", "The card number was rejected by the mock bank. Try using 4242 4242 4242 4242.");
+      _showResultDialog(
+        false, 
+        "Card Declined", 
+        "The card number was rejected by the mock bank. Try using 4242 4242 4242 4242."
+      );
     }
   }
 
@@ -138,10 +240,10 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Secure Checkout', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Secure Checkout", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF91462E))),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: colorPrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -186,6 +288,38 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
               ),
               const SizedBox(height: 25),
 
+              const Text("Contact Information", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Full Name', prefixIcon: Icon(Icons.person)),
+                validator: (val) => val!.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 10),
+
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.number,
+                maxLength: 10,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Phone Number',
+                  hintText: '123456789',
+                  prefixText: '+60 ', // Locked country layout token
+                  prefixStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                  counterText: "", // Hides length tracking counter text node
+                  prefixIcon: Icon(Icons.phone_android_rounded),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  if (val.length < 9 || val.length > 10) return 'Must be 9 or 10 digits';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 30),
+
               // 🏠 Multi-line address
               const Text("Shipping Address (Malaysia)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
@@ -210,7 +344,7 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
                       controller: _postcodeController,
                       keyboardType: TextInputType.number,
                       inputFormatters: [LengthLimitingTextInputFormatter(5), FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Postcode', hintText: '50000'),
+                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Postcode'),
                       validator: (val) => val!.length < 5 ? 'Invalid' : null,
                     ),
                   ),
