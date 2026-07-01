@@ -562,9 +562,43 @@ class ApiService {
   // HELPER
   // ========================
 
-  static Future searchProducts(String query) async {
-    final res = await http.get(Uri.parse('$baseUrl/search_products.php?q=$query'));
-    return json.decode(res.body);
+  // static Future searchProducts(String query) async {
+  //   final res = await http.get(Uri.parse('$baseUrl/search_products.php?q=$query'));
+  //   return json.decode(res.body);
+  // }
+
+  static Future<List<dynamic>> searchProducts(String query) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/search_products.php?q=${Uri.encodeComponent(query)}'))
+          .timeout(const Duration(seconds: 10));
+      
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(res.body);
+        
+        final List<dynamic> productList = data['products'] ?? [];
+
+        for (var product in productList) {
+          // Force strict mobile type casting so sorting/budget sliders don't crash
+          product['price'] = double.tryParse(product['price'].toString()) ?? 0.0;
+          product['stock_quantity'] = int.tryParse(product['stock_quantity'].toString()) ?? 0;
+
+          // Assemble the full host path for direct rendering in NetworkImage components
+          if (product['image'] != null && product['image'].toString().isNotEmpty) {
+            product['image_url'] = '$mediaUrl${product['image']}';
+          } else {
+            product['image_url'] = '${mediaUrl}placeholder-default.png';
+          }
+        }
+
+        return productList;
+      } else {
+        print('❌ Server Error: ${res.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Network/Search Exception: $e');
+      return [];
+    }
   }
 
   // ========================
