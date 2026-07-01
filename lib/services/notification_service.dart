@@ -13,20 +13,28 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(
       const  InitializationSettings(android: initializationSettingsAndroid),
+
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        print("🎯 Notification clicked: ${response.payload}");
+      },
     );
 
     final androidImplementation = _notificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
 
-    // 🚀 NEW CHANNEL ID (v10) to force a total reset
+    await androidImplementation?.requestNotificationsPermission();
+
+    // 🚀 NEW CHANNEL ID (v11) to force a total reset
     await androidImplementation?.createNotificationChannel(
       const AndroidNotificationChannel(
-        'skincare_v10', 
+        'skincare_v11', 
         'Skincare Reminders',
         description: 'Daily reminders for your routine',
         importance: Importance.max,
       ),
     );
+
+    await androidImplementation?.requestNotificationsPermission();
   }
 
   static Future<void> scheduleDailyNotification({
@@ -46,11 +54,13 @@ class NotificationService {
       _nextInstanceOfTime(hour, minute),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'skincare_v10',
+          'skincare_v11',
           'Skincare Reminders',
           importance: Importance.max,
           priority: Priority.high,
           showWhen: true,
+          channelShowBadge: true,
+          playSound: true,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
