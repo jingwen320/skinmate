@@ -227,7 +227,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            "Your filtered order lifecycle updates show up right here.",
+            "Your order lifecycle updates show up right here.",
             style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
