@@ -116,6 +116,27 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> changePassword(String userId, String currentPassword, String newPassword) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/change_password.php'),
+        body: {
+          'user_id': userId,
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        return json.decode(res.body);
+      } else {
+        return {'status': 'error', 'message': 'Server error: ${res.statusCode}'};
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': 'Network error: $e'};
+    }
+  }
+
   // ========================
   // PROFILE
   // ========================
