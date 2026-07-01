@@ -3,6 +3,7 @@ import 'dart:async';
 import '../services/api_service.dart';
 import 'product_page.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/brand_marquee.dart';
 
 class HomePage extends StatefulWidget {
   final String userId;
@@ -352,6 +353,11 @@ class _HomePageState extends State<HomePage> {
                 else ...[
                   // 3. HERO: AI SCAN BANNER
                   SliverToBoxAdapter(child: _buildHeroSection()),
+
+                  // BRAND LOGO SLIDER
+                  const SliverToBoxAdapter(
+                    child: BrandMarquee(),
+                  ),
 
                   // 4. CATEGORIES
                   SliverToBoxAdapter(child: _buildCategoriesSection()),
