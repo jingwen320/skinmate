@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../services/api_service.dart';
 import 'product_page.dart';
 import '../widgets/notification_bell.dart';
@@ -36,6 +37,11 @@ class _HomePageState extends State<HomePage> {
 
   Set<String> wishlistedProductIds = {};
 
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+  List<dynamic> _searchResults = [];
+  bool _isSearchLoading = false;
+
   // 🎨 Radiant Palette
   final Color colorPrimary = const Color(0xFF91462E);
   final Color colorPrimaryContainer = const Color(0xFFFE9D7F);
@@ -48,6 +54,42 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchProducts();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  // ⏱️ Debounce handler: stops API spam while typing
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_searchController.text.trim().isNotEmpty) {
+        _performSearch(_searchController.text.trim());
+      } else {
+        setState(() {
+          _searchResults = [];
+        });
+      }
+    });
+  }
+
+  // 🌐 Calls your ApiService helper method
+  Future<void> _performSearch(String query) async {
+    setState(() => _isSearchLoading = true);
+    
+    // Calls your updated ApiService helper that reaches search_products.php
+    final results = await ApiService.searchProducts(query);
+    
+    setState(() {
+      _searchResults = results;
+      _isSearchLoading = false;
+    });
   }
 
   Future<void> _fetchProducts() async {
@@ -210,6 +252,9 @@ class _HomePageState extends State<HomePage> {
       return stock <= 0;
     }).toList();
 
+    // Determine if user is actively searching
+    final bool isSearching = _searchController.text.trim().isNotEmpty;
+
     return Scaffold(
       backgroundColor: colorBackground,
       body: Stack(
@@ -230,9 +275,19 @@ class _HomePageState extends State<HomePage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     child: TextField(
+                      controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Search products or concerns...',
                         prefixIcon: Icon(Icons.search, color: colorPrimary),
+                        suffixIcon: isSearching
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  FocusScope.of(context).unfocus(); // Close keyboard on clear
+                                },
+                              )
+                            : null,
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -244,115 +299,167 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                // 3. HERO: AI SCAN BANNER
-                SliverToBoxAdapter(child: _buildHeroSection()),
-
-                // 4. CATEGORIES
-                SliverToBoxAdapter(child: _buildCategoriesSection()),
-
-                // 5. BUDGET SLIDER
-                SliverToBoxAdapter(child: _buildBudgetSliderSection()),
-
-                // 6. SORTING OPTIONS
-                SliverToBoxAdapter(child: _buildSortSection()),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 15)),
-
-                // 5. PRODUCT GRID HEADER
-                // SliverPadding(
-                //   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                //   sliver: SliverToBoxAdapter(
-                //     // child: Row(
-                //     //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                //     //   children: [
-                //     //     const Text("Bestsellers",
-                //     //         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                //     //     Text("View All",
-                //     //         style: TextStyle(color: colorPrimary, fontWeight: FontWeight.bold)),
-                //     //   ],
-                //     // ),
-                //   ),
-                // ),
-
-                // 6. DYNAMIC PRODUCT GRID
-                isLoading
-                    ? const SliverFillRemaining(
-                        hasScrollBody: false, 
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : availableProducts.isEmpty && soldOutProducts.isEmpty
-                        ? SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.filter_list_off_rounded, size: 48, color: Colors.grey[400]),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    "No essentials found under RM ${_maxBudget.toStringAsFixed(0)}",
-                                    style: TextStyle(fontFamily: 'Manrope', color: Colors.grey[600], fontSize: 13),
-                                  ),
-                                ],
-                              ),
+                // ====================================================================
+                // 🔍 SEARCH RESULTS VIEW BRANCH
+                // ====================================================================
+                if (isSearching) ...[
+                  if (_isSearchLoading)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_searchResults.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_off_rounded, size: 48, color: Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            const Text(
+                              "No matching products found.",
+                              style: TextStyle(fontFamily: 'Manrope', color: Colors.grey, fontSize: 14),
                             ),
-                          )
-                        : SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            sliver: SliverGrid(
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                mainAxisSpacing: 24,
-                                crossAxisSpacing: 20,
-                                childAspectRatio: 0.65,
-                              ),
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) => _buildProductCard(availableProducts[index], isSoldOut: false),
-                                childCount: availableProducts.length,
-                              ),
-                            ),
-                          ),
-
-                // 7. SOLD OUT SECTION
-                if (!isLoading && soldOutProducts.isNotEmpty) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 24, top: 40, bottom: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Out of Stock",
-                            style: TextStyle(
-                              fontSize: 18, 
-                              fontWeight: FontWeight.bold, 
-                              fontFamily: 'Plus Jakarta Sans', 
-                              color: Color(0xFF2E2F2D)
-                            ),
-                          ),
-                          Text(
-                            "Temporarily unavailable items",
-                            style: TextStyle(fontSize: 12, fontFamily: 'Manrope', color: Colors.grey[500]),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    // 🌟 Leverage your existing product card builder grid for search matching output uniformity!
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      sliver: SliverGrid(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 24,
+                          crossAxisSpacing: 20,
+                          childAspectRatio: 0.65,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final product = _searchResults[index];
+                            final int stock = int.tryParse(product['stock_quantity'].toString()) ?? 0;
+                            // Dynamically marks product card visually as sold out if stock is 0
+                            return _buildProductCard(product, isSoldOut: stock <= 0);
+                          },
+                          childCount: _searchResults.length,
+                        ),
                       ),
                     ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 24,
-                        crossAxisSpacing: 20,
-                        childAspectRatio: 0.65,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildProductCard(soldOutProducts[index], isSoldOut: true),
-                        childCount: soldOutProducts.length,
+                ]
+
+                else ...[
+                  // 3. HERO: AI SCAN BANNER
+                  SliverToBoxAdapter(child: _buildHeroSection()),
+
+                  // 4. CATEGORIES
+                  SliverToBoxAdapter(child: _buildCategoriesSection()),
+
+                  // 5. BUDGET SLIDER
+                  SliverToBoxAdapter(child: _buildBudgetSliderSection()),
+
+                  // 6. SORTING OPTIONS
+                  SliverToBoxAdapter(child: _buildSortSection()),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 15)),
+
+                  // 5. PRODUCT GRID HEADER
+                  // SliverPadding(
+                  //   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  //   sliver: SliverToBoxAdapter(
+                  //     // child: Row(
+                  //     //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //     //   children: [
+                  //     //     const Text("Bestsellers",
+                  //     //         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  //     //     Text("View All",
+                  //     //         style: TextStyle(color: colorPrimary, fontWeight: FontWeight.bold)),
+                  //     //   ],
+                  //     // ),
+                  //   ),
+                  // ),
+
+                  // 6. DYNAMIC PRODUCT GRID
+                  isLoading
+                      ? const SliverFillRemaining(
+                          hasScrollBody: false, 
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : availableProducts.isEmpty && soldOutProducts.isEmpty
+                          ? SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.filter_list_off_rounded, size: 48, color: Colors.grey[400]),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      "No products found under RM ${_maxBudget.toStringAsFixed(0)}",
+                                      style: TextStyle(fontFamily: 'Manrope', color: Colors.grey[600], fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : SliverPadding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              sliver: SliverGrid(
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 24,
+                                  crossAxisSpacing: 20,
+                                  childAspectRatio: 0.65,
+                                ),
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) => _buildProductCard(availableProducts[index], isSoldOut: false),
+                                  childCount: availableProducts.length,
+                                ),
+                              ),
+                            ),
+
+                  // 7. SOLD OUT SECTION
+                  if (!isLoading && soldOutProducts.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 24, top: 40, bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Out of Stock",
+                              style: TextStyle(
+                                fontSize: 18, 
+                                fontWeight: FontWeight.bold, 
+                                fontFamily: 'Plus Jakarta Sans', 
+                                color: Color(0xFF2E2F2D)
+                              ),
+                            ),
+                            Text(
+                              "Temporarily unavailable items",
+                              style: TextStyle(fontSize: 12, fontFamily: 'Manrope', color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      sliver: SliverGrid(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 24,
+                          crossAxisSpacing: 20,
+                          childAspectRatio: 0.65,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildProductCard(soldOutProducts[index], isSoldOut: true),
+                          childCount: soldOutProducts.length,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
                   
                 const SliverToBoxAdapter(child: SizedBox(height: 120)),
