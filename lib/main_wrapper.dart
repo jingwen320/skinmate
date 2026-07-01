@@ -3,7 +3,7 @@ import '../pages/home_page.dart';
 import '../pages/scan_page.dart';
 import '../pages/cart_page.dart';
 import '../pages/profile_page.dart';
-import '../pages/skin_history_page.dart'; // 👈 Needed for the sub-page
+import '../pages/skin_history_page.dart'; 
 
 class MainWrapper extends StatefulWidget {
   final String userId;

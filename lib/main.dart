@@ -13,6 +13,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
   await NotificationService.init();
+  await NotificationService.requestExactAlarmPermission();
   runApp(const SkinMateApp());
 }
 
