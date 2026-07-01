@@ -5,6 +5,7 @@ import 'login_page.dart';
 import 'edit_profile_page.dart'; 
 import 'order_history_page.dart';
 import 'wishlist_page.dart';
+import 'change_password_page.dart';
 import '../services/notification_service.dart'; 
 import 'package:permission_handler/permission_handler.dart';
 import '../widgets/notification_bell.dart';
@@ -350,6 +351,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildRecentOrders(),
                       const SizedBox(height: 16),
                       _buildWishlist(colorOnSurface),
+                      const SizedBox(height: 16),
+                      _buildChangePassword(colorOnSurface),
                       const SizedBox(height: 16),
                       _buildActionButtons(colorOnSurface),
                     ],
@@ -789,6 +792,51 @@ class _ProfilePageState extends State<ProfilePage> {
               Icon(Icons.favorite_rounded, color: Colors.red,), // 💡 Pro-tip: Changed help icon to a heart!
               SizedBox(width: 12),
               Text("Wishlist", style: TextStyle(fontWeight: FontWeight.bold)),
+              Spacer(),
+              Icon(Icons.chevron_right, size: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChangePassword(Color colorOnSurface) {
+    return Column(
+      children: [
+        ElevatedButton(
+          // onPressed: () {
+          //   Navigator.push(
+          //     context,
+          //     MaterialPageRoute(
+          //       builder: (context) => ChangePasswordPage(userId: widget.userId),
+          //     ),
+          //   );
+          // }, 
+          onPressed: () async { 
+            final bool? passwordChangedSuccessfully = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChangePasswordPage(userId: widget.userId),
+              ),
+            );
+
+            if (passwordChangedSuccessfully == true && mounted) {
+              debugPrint("Returned to profile tab successfully.");
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFE8E8E5),
+            foregroundColor: colorOnSurface,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Row( 
+            children: [
+              Icon(Icons.lock_reset_rounded, color: colorOnSurface), 
+              SizedBox(width: 12),
+              Text("Change Password", style: TextStyle(fontWeight: FontWeight.bold)),
               Spacer(),
               Icon(Icons.chevron_right, size: 16),
             ],
