@@ -767,4 +767,46 @@ class ApiService {
       return {'status': 'error', 'items': []};
     }
   }
+
+  // ========================
+  // CUSTOMER SUPPORT
+  // ========================
+
+  static Future<List<dynamic>> getActiveRefunds(String userId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/get_active_refunds.php?user_id=$userId'),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(res.body);
+        if (body['status'] == 'success') {
+          return body['data'] ?? [];
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<bool> cancelRefundRequest(String orderId, String ticketId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cancel_refund.php'),
+        body: {
+          'order_id': orderId,
+          'ticket_id': ticketId,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(res.body);
+        return body['status'] == 'success';
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

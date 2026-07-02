@@ -6,6 +6,7 @@ import 'edit_profile_page.dart';
 import 'order_history_page.dart';
 import 'wishlist_page.dart';
 import 'change_password_page.dart';
+import 'customer_support_page.dart';
 import '../services/notification_service.dart'; 
 import 'package:permission_handler/permission_handler.dart';
 import '../widgets/notification_bell.dart';
@@ -850,7 +851,14 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         ElevatedButton(
-          onPressed: () {}, 
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CustomerSupportPage(userId: widget.userId),
+              ),
+            );
+          }, 
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFE8E8E5),
             foregroundColor: colorOnSurface,
