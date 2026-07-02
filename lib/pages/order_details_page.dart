@@ -92,7 +92,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           "Invoice #${widget.orderId}",
           style: const TextStyle(fontWeight: FontWeight.bold, color: colorPrimary, fontFamily: 'Plus Jakarta Sans'),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorSurface,
         elevation: 0,
         foregroundColor: colorPrimary,
       ),

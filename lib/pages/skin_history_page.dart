@@ -27,7 +27,7 @@ class SkinHistoryPage extends StatelessWidget {
           onPressed: onBack, 
         ),
         title: const Text("Scan History", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF91462E))),
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorBackground,
         elevation: 0,
         foregroundColor: colorPrimary,
       ),

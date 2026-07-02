@@ -336,9 +336,9 @@ class _ScanPageState extends State<ScanPage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: colorBackground,
+      // backgroundColor: colorBackground,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorBackground.withOpacity(0.0),
         elevation: 0,
         title: Text("Skin Scan", style: TextStyle(color: colorPrimary, fontWeight: FontWeight.bold)),
         actions: [

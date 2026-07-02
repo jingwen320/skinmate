@@ -436,9 +436,8 @@ class _ProductPageState extends State<ProductPage> {
     return Scaffold(
       backgroundColor: colorBackground,
       extendBodyBehindAppBar: true,
-      // 🌟 UPDATED: Immersive Floating Action App Bar Frame 
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorBackground.withOpacity(0.0),
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Row(
