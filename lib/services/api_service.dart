@@ -580,6 +580,27 @@ class ApiService {
   }
 
   // ========================
+  // SEND EMAIL REPORT
+  // ========================
+
+  static Future<Map<String, dynamic>> sendEmailReport(dynamic scanId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/send_report_email.php'),
+        body: {'scan_id': scanId.toString()},
+      ).timeout(const Duration(seconds: 15));
+
+      if (res.statusCode == 200) {
+        return json.decode(res.body);
+      } else {
+        return {'status': 'error', 'message': 'Server returned code: ${res.statusCode}'};
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': 'Network timeout exception: $e'};
+    }
+  }
+
+  // ========================
   // HELPER
   // ========================
 

@@ -75,6 +75,7 @@
 
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../widgets/email_report_button.dart';
 
 class SkinHistoryDetailPage extends StatelessWidget {
   final Map<String, dynamic> scan;
@@ -95,7 +96,7 @@ class SkinHistoryDetailPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Scan Report", 
           style: TextStyle(fontWeight: FontWeight.bold, color: colorPrimary)),
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorSurface,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: colorPrimary),
@@ -165,6 +166,14 @@ class SkinHistoryDetailPage extends StatelessWidget {
 
             // 4. Recommendation Section
             _buildRecommendationCard(),
+
+            const SizedBox(height: 32),
+
+            // 5. 📧 Custom Standalone Email Component
+            EmailReportButton(
+              scanId: scan['id'],
+              primaryColor: colorPrimary,
+            ),
           ],
         ),
       ),
@@ -221,6 +230,34 @@ class SkinHistoryDetailPage extends StatelessWidget {
   }
 
   Widget _buildRecommendationCard() {
+    final String skinType = scan['skin_type']?.toString().trim().toLowerCase() ?? 'normal';
+    
+    String adviceTitle = "Expert Advice";
+    String adviceText = "Based on your skin profile, focus on maintaining hydration and using sun protection to improve your score.";
+
+    switch (skinType) {
+      case 'oily':
+        adviceTitle = "Oily Skin Routine Advice";
+        adviceText = "Focus on oil control and maintaining hydration. Incorporate a gentle salicylic acid (BHA) cleanser to clear out pores and choose lightweight, non-comedogenic gel moisturizers.";
+        break;
+        
+      case 'dry':
+        adviceTitle = "Dry Skin Routine Advice";
+        adviceText = "Your skin barrier requires deep moisture reinforcement. Look for products containing ceramides, hyaluronic acid, and glycerin. Avoid harsh foaming cleansers and use a rich cream moisturizer.";
+        break;
+        
+      case 'combination':
+        adviceTitle = "Combination Skin Routine Advice";
+        adviceText = "Balance is key for your skin. Use a gentle, balancing cleanser, apply lightweight hydration to your T-zone, and layer a richer moisturizing cream only on dry cheek patches.";
+        break;
+        
+      case 'normal':
+      default:
+        adviceTitle = "Normal Skin Routine Advice";
+        adviceText = "Your skin balance is currently stable. Maintain your healthy barrier function by sticking to a baseline daily regimen of gentle cleansing, daily hydration, and consistent SPF broad-spectrum protection.";
+        break;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -231,16 +268,19 @@ class SkinHistoryDetailPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.lightbulb_outline, color: colorPrimary),
-              SizedBox(width: 8),
-              Text("Expert Advice", style: TextStyle(fontWeight: FontWeight.bold, color: colorPrimary, fontSize: 16)),
+              const Icon(Icons.lightbulb_outline, color: colorPrimary),
+              const SizedBox(width: 8),
+              Text(
+                adviceTitle, 
+                style: const TextStyle(fontWeight: FontWeight.bold, color: colorPrimary, fontSize: 16)
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            "Based on your ${scan['skin_type'].toString().toLowerCase()} skin profile, focus on maintaining hydration and using sun protection to improve your score.",
+            adviceText,
             style: const TextStyle(color: Colors.black87, height: 1.5),
           ),
         ],
