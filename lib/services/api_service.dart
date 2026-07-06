@@ -8,8 +8,10 @@ import '../pages/login_page.dart';
 class ApiService {
   // static String baseUrl = "http://10.0.2.2/skinmate_api";
   // static const String mediaUrl = "http://10.0.2.2/skinmate_api/images/";
-  static String baseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api";
-  static const String mediaUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/images/";
+  // static String baseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api";
+  // static const String mediaUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/images/";
+  static String baseUrl = "https://library-valium-riverboat.ngrok-free.dev/skinmate_api";
+  static const String mediaUrl = "https://library-valium-riverboat.ngrok-free.dev/skinmate_api/images/";
   // static String baseUrl = "http://192.168.101.170/skinmate_api";
   // static String baseUrl = "http://192.168.0.22/skinmate_api";
   
@@ -720,30 +722,43 @@ class ApiService {
   static Future<Map<String, dynamic>> submitRefundRequest({
     required String orderId,
     required String userId,
-    required String productId,
     required String reason,
     required String description,
-    required int quantity,
-    required double amount,
-    required File file,
+    required double totalAmount,
+    required List<Map<String, dynamic>> items,
+    required List<File> proofFiles,
   }) async {
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/submit_refund.php'));
     
     request.fields.addAll({
       'order_id': orderId,
       'user_id': userId,
-      'product_id': productId,
       'reason': reason,
       'description': description,
-      'quantity': quantity.toString(),
-      'amount': amount.toString(),
+      'total_amount': totalAmount.toString(),
+      'items': jsonEncode(items), 
     });
 
-    request.files.add(await http.MultipartFile.fromPath('proof', file.path));
+    for (int i = 0; i < proofFiles.length; i++) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'proof[]', 
+          proofFiles[i].path,
+        ),
+      );
+    }
 
-    var streamedRes = await request.send();
+    var streamedRes = await request.send().timeout(const Duration(seconds: 25));
     var res = await http.Response.fromStream(streamedRes);
-    return jsonDecode(res.body);
+    
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    } else {
+      return {
+        'status': 'error',
+        'message': 'Server returned an unhandled error condition code: ${res.statusCode}'
+      };
+    }
   }
 
   static Future<Map<String, dynamic>> getOrderItems(String orderId) async {
@@ -767,4 +782,135 @@ class ApiService {
       return {'status': 'error', 'items': []};
     }
   }
+
+  // ========================
+  // CUSTOMER SUPPORT
+  // ========================
+
+  static Future<List<dynamic>> getActiveRefunds(String userId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/get_active_refunds.php?user_id=$userId'),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(res.body);
+        if (body['status'] == 'success') {
+          return body['data'] ?? [];
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getRefundHistory(String userId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/get_refund_history.php?user_id=$userId'),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(res.body);
+        if (body['status'] == 'success') {
+          // 🌟 Safely returns the clean array maps containing historical receipts back to the view page
+          return body['data'] ?? [];
+        }
+      }
+      return [];
+    } catch (e) {
+      // Return a blank list on structural format network breaks gracefully
+      return [];
+    }
+  }
+
+  static Future<bool> cancelRefundRequest(String orderId, String ticketId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cancel_refund.php'),
+        body: {
+          'order_id': orderId,
+          'ticket_id': ticketId,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint("====== CANCEL REFUND DEBUG ======");
+      debugPrint("HTTP Status Code: ${res.statusCode}");
+      debugPrint("Raw Response Body: '${res.body}'");
+      debugPrint("=================================");
+
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(res.body);
+        return body['status'] == 'success';
+      }
+      return false;
+    } catch (e, stacktrace) {
+      debugPrint("❌ Flutter Cancel Error: $e");
+      debugPrint("Stacktrace: $stacktrace");
+      return false;
+    }
+  }
+
+  static Future<List<dynamic>> getChatMessages(int userId) async {
+  try {
+    final response = await http.get(Uri.parse('$baseUrl/get_messages.php?user_id=$userId'));
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        return data['messages'] ?? [];
+      }
+    }
+    return [];
+  } catch (e) {
+    debugPrint("Error fetching chat messages: $e");
+    return [];
+  }
+}
+
+  static Future<Map<String, dynamic>> sendChatMessage({
+    required int userId,
+    required String senderType,
+    required String message,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/send_message.php'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "user_id": userId,
+          "sender_type": senderType,
+          "message": message,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {"status": "error", "message": "Server responded with status code ${response.statusCode}"};
+    } catch (e) {
+      debugPrint("Error sending message: $e");
+      return {"status": "error", "message": e.toString()};
+    }
+  }
+
+  static Future<bool> closeChatRoom(int roomId) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/close_chat_room.php'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"room_id": roomId}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['status'] == 'success';
+    }
+    return false;
+  } catch (e) {
+    debugPrint("Error closing chat room: $e");
+    return false;
+  }
+}
 }

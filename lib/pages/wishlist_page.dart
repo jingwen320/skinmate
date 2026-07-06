@@ -105,7 +105,6 @@ class _WishlistPageState extends State<WishlistPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🌟 THE INTEGRATION: Replaced the old text widget with the newly styled rich text block
                   Text.rich(
                     TextSpan(
                       style: const TextStyle(fontFamily: 'Manrope', fontSize: 13, color: Color(0xFF2E2F2D), height: 1.5),
@@ -174,33 +173,48 @@ class _WishlistPageState extends State<WishlistPage> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    Navigator.pop(dialogContext); // Drop dialog instantly
-
                     final String prodId = (item['id'] ?? item['product_id'] ?? '').toString();
                     
-                    // Fire network request using your raw database string fields
                     final response = await ApiService.addToCart(
                       userId: widget.userId,
                       productId: prodId,
-                      productName: item['name'] ?? 'Essential Product',
+                      productName: rawName,
                       productPrice: item['price'].toString(),
-                      productImage: item['image'] ?? '', // Saves the raw string filename/path field context
+                      productImage: item['image'] ?? '', 
                       quantity: selectedQuantity,
                     );
 
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            response['message'] ?? 'Cart updated successfully',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontFamily: 'Manrope'),
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: response['status'] == 'success' ? const Color(0xFF91462E) : Colors.red,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      );
-                    }
+                    if (!mounted) return;
+
+                    Navigator.pop(dialogContext); 
+
+                    final bool isSuccess = response['status'] == 'success';
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: isSuccess ? const Color(0xFF91462E) : Colors.red,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        content: isSuccess
+                            ? Text.rich(
+                                TextSpan(
+                                  style: const TextStyle(fontFamily: 'Manrope', fontSize: 14, color: Colors.white),
+                                  children: [
+                                    TextSpan(text: "$selectedQuantity x "), // Normal text
+                                    TextSpan(
+                                      text: "$displayBrand$rawName",
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    const TextSpan(text: " added"), // Normal text
+                                  ],
+                                ),
+                              )
+                            : Text(
+                                response['message'] ?? 'Failed to update cart.',
+                                style: const TextStyle(fontFamily: 'Manrope', fontSize: 14),
+                              ),
+                      ),
+                    );
                   },
                   child: const Text("ADD TO CART", style: TextStyle(color: Color(0xFF91462E), fontWeight: FontWeight.bold)),
                 ),
@@ -288,7 +302,9 @@ class _WishlistPageState extends State<WishlistPage> {
         ? "${rawBrand.toUpperCase()} $rawName" 
         : rawName;
 
-    final double priceValue = double.tryParse(item['price'].toString()) ?? 0.0;    
+    final double priceValue = double.tryParse(item['price'].toString()) ?? 0.0;  
+
+    final bool isOutOfStock = (item['stock_quantity'] != null && int.parse(item['stock_quantity'].toString()) <= 0);  
 
     return Container(
       decoration: BoxDecoration(
@@ -413,20 +429,39 @@ class _WishlistPageState extends State<WishlistPage> {
                       
                       // Circle Add to Cart Quick Trigger Interaction
                       GestureDetector(
-                        onTap: () => _showQuantityDialog(item),
+                        onTap: isOutOfStock ? null : () => _showQuantityDialog(item),
                         child: Container(
                           padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFEC1D6), // secondary-container hex token code
+                          decoration: BoxDecoration(
+                            color: isOutOfStock 
+                                ? Colors.grey.shade300 
+                                : const Color(0xFFFEC1D6), 
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.add_shopping_cart_rounded,
                             size: 16,
-                            color: Color(0xFF663A4B), // on-secondary-container text token color
+                            color: isOutOfStock 
+                                ? Colors.grey.shade600 
+                                : const Color(0xFF663A4B), 
                           ),
                         ),
-                      )
+                      ),
+                      // GestureDetector(
+                      //   onTap: () => _showQuantityDialog(item),
+                      //   child: Container(
+                      //     padding: const EdgeInsets.all(8),
+                      //     decoration: const BoxDecoration(
+                      //       color: Color(0xFFFEC1D6), // secondary-container hex token code
+                      //       shape: BoxShape.circle,
+                      //     ),
+                      //     child: const Icon(
+                      //       Icons.add_shopping_cart_rounded,
+                      //       size: 16,
+                      //       color: Color(0xFF663A4B), // on-secondary-container text token color
+                      //     ),
+                      //   ),
+                      // )
                     ],
                   ),
                 ],

@@ -48,6 +48,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   file_picker: ^11.0.2
 
+  pusher_channels_flutter: ^2.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
