@@ -8,8 +8,11 @@ class RefundDetailsPage extends StatelessWidget {
 
   static const colorPrimary = Color(0xFF91462E);
   static const colorSurface = Color(0xFFF7F6F3);
-  static const String serverBaseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/"; 
-  static const String mediaBaseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/images/"; 
+  // static const String serverBaseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/"; 
+  // static const String mediaBaseUrl = "https://carwash-manhandle-sprinkler.ngrok-free.dev/skinmate_api/images/"; 
+  static const String serverBaseUrl = "https://library-valium-riverboat.ngrok-free.dev/skinmate_api/"; 
+  static const String mediaBaseUrl = "https://library-valium-riverboat.ngrok-free.dev/skinmate_api/images/"; 
+  
 
   @override
   Widget build(BuildContext context) {
@@ -17,12 +20,31 @@ class RefundDetailsPage extends StatelessWidget {
     final double progress = (ticket['progress'] as num).toDouble();
     final double amount = (ticket['amount'] as num).toDouble();
     final String? adminReply = ticket['admin_reply'];
-    
-    // Extracted items
+
     final String productBrand = ticket['product_brand'] ?? "SkinMate";
     final String productName = ticket['product_name'] ?? "SkinMate Product";
     final int quantity = ticket['quantity'] ?? 1;
-    final String? proofPath = ticket['proof_path'];
+
+    final List<dynamic> itemsList = ticket['items'] ?? [
+      {
+        'brand': ticket['product_brand'] ?? "SkinMate",
+        'name': ticket['product_name'] ?? "SkinMate Product",
+        'quantity': ticket['quantity'] ?? 1,
+        'image': ticket['product_image'],
+        'amount': amount
+      }
+    ];
+
+    final String rawProofPath = ticket['proof_path'] ?? "";
+    final List<String> proofPaths = rawProofPath.isNotEmpty 
+        ? rawProofPath.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList()
+        : [];
+    
+    // Extracted items
+    // final String productBrand = ticket['product_brand'] ?? "SkinMate";
+    // final String productName = ticket['product_name'] ?? "SkinMate Product";
+    // final int quantity = ticket['quantity'] ?? 1;
+    // final String? proofPath = ticket['proof_path'];
 
     Color statusColor = colorPrimary;
     if (status == 'Rejected') statusColor = Colors.redAccent;
@@ -123,56 +145,86 @@ class RefundDetailsPage extends StatelessWidget {
             // 🌟 2. NEW: Product & Quantity Summary List Card
             const Text("Item Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorPrimary)),
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: colorSurface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: ticket['product_image'] != null && ticket['product_image'].toString().isNotEmpty
-                          ? Image.network(
-                              "$mediaBaseUrl${ticket['product_image']}",
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_bag_outlined, color: colorPrimary),
-                            )
-                          : const Icon(Icons.shopping_bag_outlined, color: colorPrimary),
-                    ),
+            ListView.builder(
+              shrinkWrap: true, // Prevents layout bounds errors inside a SingleChildScrollView
+              physics: const NeverScrollableScrollPhysics(), // Let the main page handle the scrolling
+              itemCount: itemsList.length,
+              itemBuilder: (context, idx) {
+                // Safely extract the item attributes for this specific iteration index loop
+                final item = itemsList[idx];
+                final String brand = item['brand'] ?? productBrand;
+                final String name = item['name'] ?? productName;
+                final int qty = item['quantity'] ?? quantity;
+                final double itemAmount = (item['amount'] as num?)?.toDouble() ?? amount;
+                final String? imgPath = item['image'] ?? ticket['product_image'];
+
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12), // Adds beautiful breathing room between cards
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white, 
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 8, offset: const Offset(0, 2))],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "${productBrand.toUpperCase()} $productName",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                  child: Row(
+                    children: [
+                      // Product Thumbnail Container
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: colorSurface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.withOpacity(0.1)),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Quantity: $quantity",
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: imgPath != null && imgPath.toString().isNotEmpty
+                              ? Image.network(
+                                  "$mediaBaseUrl$imgPath",
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_bag_outlined, color: colorPrimary),
+                                )
+                              : const Icon(Icons.shopping_bag_outlined, color: colorPrimary),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 16),
+                      
+                      // Brand & Product Text Elements
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${brand.toUpperCase()} $name",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87, fontFamily: 'Plus Jakarta Sans'),
+                            ),
+                            const SizedBox(height: 4),
+                            // Compact Metadata Row
+                            Row(
+                              children: [
+                                Text(
+                                  "Quantity: $qty",
+                                  style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: 'Plus Jakarta Sans'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Price Tag Metric
+                      Text(
+                        "RM ${itemAmount.toStringAsFixed(2)}",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: colorPrimary, fontFamily: 'Plus Jakarta Sans'),
+                      ),
+                    ],
                   ),
-                  Text(
-                    "RM ${(amount).toStringAsFixed(2)}",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: colorPrimary),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
             // 3. Request Metadata Info Block
             const Text("Request Information", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorPrimary)),
@@ -210,92 +262,52 @@ class RefundDetailsPage extends StatelessWidget {
             const SizedBox(height: 24),
 
             // 🌟 5. NEW: Attached Image Proof Section
-            if (proofPath != null && proofPath.isNotEmpty) ...[
-              const Text("Attached Proof", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorPrimary)),
+            if (proofPaths.isNotEmpty) ...[
+              const Text("Attached Proof Gallery", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorPrimary, fontFamily: 'Plus Jakarta Sans')),
               const SizedBox(height: 12),
-              GestureDetector(
-                // 🌟 Tapping triggers an elegant, interactive full-screen image viewer dialog modal
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => Dialog(
-                      backgroundColor: Colors.transparent,
-                      insetPadding: const EdgeInsets.all(10),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // InteractiveViewer allows pinch-to-zoom scaling dynamically
-                          InteractiveViewer(
-                            panEnabled: true,
-                            boundaryMargin: const EdgeInsets.all(20),
-                            minScale: 0.5,
-                            maxScale: 4.0,
-                            child: Image.network(
-                              "$serverBaseUrl$proofPath",
-                              fit: BoxFit.contain, // Fits the whole uncropped image cleanly on any device frame
-                            ),
-                          ),
-                          // Close overlay option floating helper button
-                          Positioned(
-                            top: 20,
-                            right: 20,
-                            child: CircleAvatar(
-                              backgroundColor: Colors.black.withOpacity(0.6),
-                              child: IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white),
-                                onPressed: () => Navigator.pop(context),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
+              SizedBox(
+                height: 110,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: proofPaths.length,
+                  itemBuilder: (context, index) {
+                    final individualPath = proofPaths[index];
+                    final bool isPdf = individualPath.toLowerCase().endsWith('.pdf');
+
+                    return GestureDetector(
+                      onTap: () => _openFullMediaViewer(context, individualPath, isPdf),
+                      child: Container(
+                        width: 110,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                        ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.network(
-                            "$serverBaseUrl$proofPath",
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(child: CircularProgressIndicator(color: colorPrimary));
-                            },
-                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          child: isPdf
+                              ? const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.picture_as_pdf, color: Colors.red, size: 36),
+                                    SizedBox(height: 4),
+                                    Text("PDF Document", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54, fontFamily: 'Plus Jakarta Sans')),
+                                  ],
+                                )
+                              : Image.network(
+                                  "$serverBaseUrl$individualPath",
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(child: CircularProgressIndicator(color: colorPrimary, strokeWidth: 2));
+                                  },
+                                  errorBuilder: (context, e, s) => const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                ),
                         ),
                       ),
-                      // Subtle tap invitation overlay tag
-                      Positioned(
-                        bottom: 12,
-                        right: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.fullscreen, color: Colors.white, size: 16),
-                              SizedBox(width: 4),
-                              Text("View Full Image", style: TextStyle(color: Colors.white, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                      )
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -306,7 +318,18 @@ class RefundDetailsPage extends StatelessWidget {
                 width: double.infinity,
                 height: 52,
                 child: OutlinedButton.icon(
-                  onPressed: () => _showCancelConfirmationDialog(context, ticket['ticket_id'].toString(), ticket['order_id'].toString()),
+                  // onPressed: () => _showCancelConfirmationDialog(context, ticket['ticket_id'].toString(), ticket['order_id'].toString()),
+                  onPressed: () async {
+                    final bool? didCancel = await _showCancelConfirmationDialog(
+                      context, 
+                      ticket['ticket_id'].toString(), 
+                      ticket['order_id'].toString()
+                    );
+
+                    if (didCancel == true && context.mounted) {
+                      Navigator.pop(context, true); // Return to the previous page and trigger a refresh
+                    }
+                  },
                   icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 20),
                   label: const Text(
                     "CANCEL REFUND REQUEST",
@@ -319,6 +342,58 @@ class RefundDetailsPage extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openFullMediaViewer(BuildContext context, String path, bool isPdf) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: isPdf
+                  ? Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white, 
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+                          SizedBox(height: 16),
+                          Text(
+                            "PDF Document attached via mobile device.", 
+                            style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Image.network("$serverBaseUrl$path", fit: BoxFit.contain),
+            ),
+            Positioned(
+              top: 20,
+              right: 20,
+              child: CircleAvatar(
+                backgroundColor: Colors.black.withOpacity(0.6),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -343,41 +418,55 @@ class RefundDetailsPage extends StatelessWidget {
     );
   }
 
-  void _showCancelConfirmationDialog(BuildContext context, String ticketId, String orderId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+  Future<bool?> _showCancelConfirmationDialog(BuildContext parentContext, String ticketId, String orderId) {
+    return showDialog<bool>(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text("Cancel Request?", style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text("Are you sure you want to cancel your refund request for $ticketId? This action cannot be undone."),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext), // Closes only the choice dialog safely
             child: const Text("No, Keep It", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context); // Close the dialog box immediately
+              // 1. Close the confirmation dialog box immediately
+              Navigator.pop(dialogContext); 
               
-              // Show a loading indicator overlay while processing network database changes
+              // 2. Show a loading indicator overlay using the root parentContext
               showDialog(
-                context: context,
+                context: parentContext,
                 barrierDismissible: false,
-                builder: (context) => const Center(child: CircularProgressIndicator(color: colorPrimary)),
+                builder: (loadingContext) => const Center(child: CircularProgressIndicator(color: colorPrimary)),
               );
 
+              // 3. Fire your network API call
               bool success = await ApiService.cancelRefundRequest(orderId, ticketId);
 
-              Navigator.pop(context); // Remove the loading spinner indicator array context layer
+              // 4. Verify the underlying page hasn't been closed while waiting
+              if (!parentContext.mounted) return;
+
+              // 5. Explicitly pop the top layer off parentContext (this closes the loading spinner!)
+              Navigator.of(parentContext).pop(); 
 
               if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Refund request $ticketId has been successfully cancelled.")),
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  SnackBar(
+                    content: Text("Refund request $ticketId has been successfully cancelled."),
+                    backgroundColor: Colors.green,
+                  ),
                 );
-                Navigator.pop(context); // Pop back smoothly to Customer Support Dashboard list view
+                
+                // 6. Return 'true' back to your Customer Support Page so it instantly refreshes the list!
+                Navigator.pop(parentContext, true); 
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Failed to cancel refund. Please try again or chat with support.")),
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  const SnackBar(
+                    content: Text("Failed to cancel refund. Please try again or chat with support."),
+                    backgroundColor: Colors.redAccent,
+                  ),
                 );
               }
             },

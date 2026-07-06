@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'refund_details_page.dart';
+import 'refund_history_page.dart';
+import 'chat_room_page.dart';
 
 class CustomerSupportPage extends StatelessWidget {
   final String userId;
@@ -77,6 +79,32 @@ class CustomerSupportPage extends StatelessWidget {
                 );
               },
             ),
+
+            const SizedBox(height: 12),
+
+            Card(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                onTap: () {
+                  // Navigate cleanly to the permanent history archive page view
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RefundHistoryPage(userId: userId),
+                    ),
+                  );
+                },
+                leading: const Icon(Icons.history_toggle_off_rounded, color: colorPrimary),
+                title: const Text(
+                  "Refund History", 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87)
+                ),
+                subtitle: const Text("View past approved, rejected, or cancelled claims"),
+                trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+              ),
+            ),
             
             const SizedBox(height: 32),
             const Divider(thickness: 1),
@@ -99,6 +127,14 @@ class CustomerSupportPage extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: () {
                   // Next action: Pusher dynamic conversation framework launcher
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatRoomPage(
+                        userId: int.parse(userId), // Passes your active customer ID downstream
+                      ),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
                 label: const Text(

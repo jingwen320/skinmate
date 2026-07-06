@@ -18,13 +18,18 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
   final _formKey = GlobalKey<FormState>();
   
   List<dynamic> _orderItems = [];
-  Map<String, dynamic>? _selectedItem;
-  int _quantity = 1;
-  double _calculatedRefund = 0.0;
+
+  final List<Map<String, dynamic>> _selectedItemsWithQty = [];
+  final List<File> _proofFiles = [];
+
+  // Map<String, dynamic>? _selectedItem;
+
+  // int _quantity = 1;
+  // double _calculatedRefund = 0.0;
   
   String? _selectedReason;
   final TextEditingController _descController = TextEditingController();
-  File? _proofFile;
+  // File? _proofFile;
   bool _isLoadingItems = true;
   bool _isSubmitting = false;
 
@@ -56,12 +61,23 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
     }
   }
 
-  void _updatePrice() {
-    if (_selectedItem != null) {
-      String rawPrice = _selectedItem!['price'].toString().replaceAll('RM ', '').replaceAll(',', '');
+  // void _updatePrice() {
+  //   if (_selectedItem != null) {
+  //     String rawPrice = _selectedItem!['price'].toString().replaceAll('RM ', '').replaceAll(',', '');
+  //     double price = double.tryParse(rawPrice) ?? 0.0;
+  //     setState(() => _calculatedRefund = price * _quantity);
+  //   }
+  // }
+
+  double get _calculatedRefund {
+    double total = 0;
+    for (var selected in _selectedItemsWithQty) {
+      String rawPrice = selected['item']['price'].toString().replaceAll('RM ', '').replaceAll(',', '');
       double price = double.tryParse(rawPrice) ?? 0.0;
-      setState(() => _calculatedRefund = price * _quantity);
+      int qty = selected['quantity'] as int;
+      total += (price * qty);
     }
+    return total;
   }
 
   Future<void> _handleAttachment() async {
@@ -97,7 +113,7 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
     final XFile? image = await picker.pickImage(source: source, imageQuality: 80); // Compressed for faster PHP upload
 
     if (image != null) {
-      setState(() => _proofFile = File(image.path));
+      setState(() => _proofFiles.add(File(image.path)));
     }
   }
 
@@ -108,7 +124,7 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
         allowedExtensions: ['jpg', 'png', 'pdf'],
       );
       if (result != null && result.files.single.path != null) {
-        setState(() => _proofFile = File(result.files.single.path!));
+        setState(() => _proofFiles.add(File(result.files.single.path!)));
       }
     } catch (e) {
       debugPrint("Error: $e");
@@ -117,9 +133,25 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
 
   // 1. Initial trigger with confirmation dialog
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _selectedItem == null || _proofFile == null) {
+    // if (!_formKey.currentState!.validate() || _selectedItem == null || _proofFile == null) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text("Please complete all fields & upload proof"))
+    //   );
+    //   return;
+    // }
+
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedItemsWithQty.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please complete all fields & upload proof"))
+        const SnackBar(content: Text("Please select at least one item to refund."))
+      );
+      return;
+    }
+
+    if (_proofFiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please upload at least one proof image or document."))
       );
       return;
     }
@@ -153,15 +185,30 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
     setState(() => _isSubmitting = true);
     
     try {
+      List<Map<String, dynamic>> itemsPayload = _selectedItemsWithQty.map((e) {
+        String rawPrice = e['item']['price'].toString().replaceAll('RM ', '').replaceAll(',', '');
+        double price = double.tryParse(rawPrice) ?? 0.0;
+        int qty = e['quantity'] as int;
+        
+        return {
+          'product_id': e['item']['product_id'].toString(),
+          'quantity': qty,
+          'amount': price * qty
+        };
+      }).toList();
+
       final res = await ApiService.submitRefundRequest(
         orderId: widget.orderId,
         userId: widget.userId,
-        productId: _selectedItem!['product_id'].toString(),
+        // productId: _selectedItem!['product_id'].toString(),
         reason: _selectedReason!,
         description: _descController.text,
-        quantity: _quantity,
-        amount: _calculatedRefund,
-        file: _proofFile!,
+        // quantity: _quantity,
+        // amount: _calculatedRefund,
+        // file: _proofFile!,
+        totalAmount: _calculatedRefund,
+        items: itemsPayload,
+        proofFiles: _proofFiles,
       );
 
       if (mounted) {
@@ -176,6 +223,9 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
       }
     } catch (e) {
       if (mounted) setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("An error occurred: $e"))
+      );
     }
   }
 
@@ -243,8 +293,10 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
     return Scaffold(
       backgroundColor: colorSurface,
       appBar: AppBar(
-        title: Text("Refund Request #${widget.orderId}", 
-          style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold, color: colorPrimary)),
+        title: Text(
+          "Refund Request #${widget.orderId}", 
+          style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold, color: colorPrimary),
+        ),
         centerTitle: true,
         backgroundColor: colorSurface,
         elevation: 0,
@@ -259,75 +311,111 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Request Details", 
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorPrimary, fontFamily: 'Plus Jakarta Sans')),
-                  const SizedBox(height: 20),
-
-                  // ITEM SELECTOR
-                  const Text("Select Item", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<dynamic>(
-                    // 💡 Add this Key based on the list length to force a rebuild when data arrives
-                    key: ValueKey(_orderItems.length), 
-                    
-                    // Use initialValue to avoid the "deprecated" warning, or 'value' for strict control
-                    value: _selectedItem,
-                    
-                    hint: Text(_orderItems.isEmpty ? "No items available" : "Select an item"),
-                    decoration: _inputDecoration("Return Item", Icons.shopping_bag_outlined),
-                    
-                    // 💡 Use .toList() and ensure the value is mapped correctly
-                    items: _orderItems.map<DropdownMenuItem<dynamic>>((item) {
-                      return DropdownMenuItem<dynamic>(
-                        value: item, // This must be the whole Map object
-                        child: Text(
-                          item['name'] ?? "Unknown Product",
-                          style: const TextStyle(fontFamily: 'Plus Jakarta Sans'),
-                        ),
-                      );
-                    }).toList(),
-                    
-                    onChanged: _orderItems.isEmpty ? null : (dynamic newValue) {
-                      setState(() {
-                        _selectedItem = newValue;
-                        _quantity = 1; // Reset quantity on item change
-                      });
-                      _updatePrice();
-                    },
+                  const Text(
+                    "Request Details", 
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorPrimary, fontFamily: 'Plus Jakarta Sans'),
                   ),
-                  
-                  if (_selectedItem != null) ...[
-                    const SizedBox(height: 20),
-                    const Text("Quantity to Return", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text("Quantity", style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w500)),
-                          Row(
-                            children: [
-                              IconButton(icon: const Icon(Icons.remove_circle_outline, color: colorPrimary), onPressed: _quantity > 1 ? () { setState(() => _quantity--); _updatePrice(); } : null),
-                              Text("$_quantity", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              IconButton(icon: const Icon(Icons.add_circle_outline, color: colorPrimary), onPressed: _quantity < int.parse(_selectedItem!['qty'].toString()) ? () { setState(() => _quantity++); _updatePrice(); } : null),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
                   const SizedBox(height: 20),
+
+                  const Text("Select Items to Return", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  _orderItems.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text("No items available for return.", style: TextStyle(color: Colors.grey, fontFamily: 'Plus Jakarta Sans')),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _orderItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _orderItems[index];
+                            
+                            // Identify if this row exists inside the user's active choice list array
+                            final selectedIdx = _selectedItemsWithQty.indexWhere((element) => element['item']['product_id'] == item['product_id']);
+                            final isChecked = selectedIdx != -1;
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  CheckboxListTile(
+                                    activeColor: colorPrimary,
+                                    title: Text(
+                                      "${item['brand'].toString().toUpperCase()} ${item['name'] ?? "Unknown Product"}",
+                                      style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                    ),
+                                    subtitle: Text(
+                                      "Price: RM ${double.tryParse(item['price'].toString().replaceAll('RM ', '').replaceAll(',', ''))?.toStringAsFixed(2) ?? '0.00'} • Purchased Qty: ${item['qty']}",
+                                      style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12),
+                                    ),
+                                    value: isChecked,
+                                    onChanged: (bool? checked) {
+                                      setState(() {
+                                        if (checked == true) {
+                                          _selectedItemsWithQty.add({
+                                            'item': item,
+                                            'quantity': 1,
+                                          });
+                                        } else {
+                                          _selectedItemsWithQty.removeAt(selectedIdx);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  // Only display quantity controls if this specific item is checked
+                                  if (isChecked) ...[
+                                    const Divider(height: 1, indent: 16, endIndent: 16),
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8, top: 4),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text("Quantity to refund:", style: TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Plus Jakarta Sans')),
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.remove_circle_outline, color: colorPrimary, size: 22), 
+                                                onPressed: _selectedItemsWithQty[selectedIdx]['quantity'] > 1 
+                                                    ? () => setState(() => _selectedItemsWithQty[selectedIdx]['quantity']--) 
+                                                    : null,
+                                              ),
+                                              Text(
+                                                "${_selectedItemsWithQty[selectedIdx]['quantity']}", 
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, fontFamily: 'Plus Jakarta Sans'),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.add_circle_outline, color: colorPrimary, size: 22), 
+                                                onPressed: _selectedItemsWithQty[selectedIdx]['quantity'] < int.parse(item['qty'].toString()) 
+                                                    ? () => setState(() => _selectedItemsWithQty[selectedIdx]['quantity']++) 
+                                                    : null,
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  ]
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+
+                  const SizedBox(height: 0),
                   const Text("Reason for Refund", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedReason,
+                    value: _selectedReason,
                     style: const TextStyle(fontFamily: 'Plus Jakarta Sans', color: Colors.black, fontWeight: FontWeight.w500),
                     decoration: _inputDecoration("Select Reason", Icons.help_outline),
                     items: _reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                     onChanged: (val) => setState(() => _selectedReason = val),
+                    validator: (v) => v == null ? "Required" : null,
                   ),
 
                   const SizedBox(height: 20),
@@ -342,55 +430,101 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
                   ),
 
                   const SizedBox(height: 20),
-                  const Text("Proof Attachment", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text("Proof Attachments (At least 1 required)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 8),
-                  InkWell(
-                    onTap: _handleAttachment, // Calls the new choice menu
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white, 
-                        borderRadius: BorderRadius.circular(12),
-                        border: _proofFile != null ? Border.all(color: colorPrimary, width: 1) : null,
-                      ),
-                      child: _proofFile == null
-                          ? Row(
-                              children: [
-                                const Icon(Icons.add_a_photo_outlined, color: colorPrimary),
-                                const SizedBox(width: 12),
-                                const Text("Upload Photo or Document", style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w500)),
-                              ],
-                            )
-                          : Column(
-                              children: [
-                                // Show image preview if it's not a PDF
-                                if (_proofFile!.path.toLowerCase().endsWith('.jpg') || _proofFile!.path.toLowerCase().endsWith('.png'))
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(_proofFile!, height: 300, width: double.infinity, fit: BoxFit.cover),
-                                  ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                                    const SizedBox(width: 8),
-                                    // Text("File Attached: ${_proofFile!.path.split('/').last}", 
-                                    //   style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                  ],
-                                ),
-                                TextButton(
-                                  onPressed: _handleAttachment,
-                                  child: const Text("Change File", style: TextStyle(color: colorPrimary, fontSize: 12)),
-                                )
-                              ],
+                  
+                  // 🌟 REPLACED: Multi-Image Grid Layout + Interactive Attacher Hub
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white, 
+                      borderRadius: BorderRadius.circular(12),
+                      border: _proofFiles.isNotEmpty ? Border.all(color: colorPrimary.withOpacity(0.3), width: 1) : null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_proofFiles.isNotEmpty) ...[
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 1,
                             ),
+                            itemCount: _proofFiles.length,
+                            itemBuilder: (context, idx) {
+                              final file = _proofFiles[idx];
+                              final isPdf = file.path.toLowerCase().endsWith('.pdf');
+                              
+                              return Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: isPdf
+                                          ? Container(
+                                              color: colorSurface,
+                                              child: const Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.picture_as_pdf, color: Colors.red, size: 32),
+                                                  SizedBox(height: 4),
+                                                  Text("PDF", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                                ],
+                                              ),
+                                            )
+                                          : Image.file(file, fit: BoxFit.cover),
+                                    ),
+                                  ),
+                                  // Remove image tag button overlay
+                                  Positioned(
+                                    top: 2,
+                                    right: 2,
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _proofFiles.removeAt(idx)),
+                                      child: CircleAvatar(
+                                        radius: 10,
+                                        backgroundColor: Colors.black.withOpacity(0.7),
+                                        child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        
+                        // Add additional files action bar trigger
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: OutlinedButton.icon(
+                            onPressed: _handleAttachment,
+                            icon: const Icon(Icons.add_a_photo_outlined, size: 18, color: colorPrimary),
+                            label: Text(
+                              _proofFiles.isEmpty ? "Upload Photo or Document" : "Add More Proof Items",
+                              style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w600, color: colorPrimary, fontSize: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: colorPrimary, width: 1.2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
                   const SizedBox(height: 30),
-                  if (_selectedItem != null) ...[
+                  
+                  // Live calculation box updates dynamically across getter properties
+                  if (_selectedItemsWithQty.isNotEmpty) ...[
                     Center(
                       child: Text(
                         "Total Refund: RM ${_calculatedRefund.toStringAsFixed(2)}",
@@ -400,7 +534,7 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
                     const SizedBox(height: 20),
                   ],
 
-                  // SAVE/SUBMIT BUTTON (Matching Edit Profile)
+                  // SAVE/SUBMIT REQUEST TRIGGER BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 54,
@@ -413,8 +547,10 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
                       ),
                       child: _isSubmitting
                           ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text("SUBMIT REQUEST", 
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
+                          : const Text(
+                              "SUBMIT REQUEST", 
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13),
+                            ),
                     ),
                   ),
                 ],

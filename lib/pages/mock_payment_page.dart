@@ -237,11 +237,12 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
   @override
   Widget build(BuildContext context) {
     const colorPrimary = Color(0xFF91462E);
+    const colorSurface = Color(0xFFF7F6F3);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Secure Checkout", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF91462E))),
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorSurface,
         elevation: 0,
         foregroundColor: colorPrimary,
       ),
