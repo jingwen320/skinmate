@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import '../services/api_service.dart'; 
+import '../services/notification_service.dart';
 
 class NotificationBell extends StatefulWidget {
   final String userId;
@@ -20,11 +23,71 @@ class NotificationBell extends StatefulWidget {
 class _NotificationBellState extends State<NotificationBell> {
   int unreadCount = 0;
   List notificationsList = [];
+  StreamSubscription? _notificationSubscription;
+  int _lastCount = 0;
 
   @override
   void initState() {
     super.initState();
-    fetchNotifications();
+    // fetchNotifications();
+    _startRealTimeNotificationStream();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel(); 
+    super.dispose();
+  }
+
+  void _startRealTimeNotificationStream() {
+    final client = HttpClient();
+    final url = Uri.parse("${ApiService.baseUrl}/stream_notifications.php?user_id=${widget.userId}");
+
+    bool isFirstLoad = true;
+
+    client.getUrl(url).then((request) => request.close()).then((response) {
+      _notificationSubscription = response
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((String line) {
+            if (line.startsWith("data: ")) {
+              final String rawJson = line.substring(6).trim();
+              if (rawJson.isEmpty) return;
+
+              final Map<String, dynamic> data = json.decode(rawJson);
+              if (data['status'] == 'success') {
+                List incomingList = data['notifications'] ?? [];
+
+                setState(() {
+                  unreadCount = data['unread_count'];
+                  notificationsList = incomingList;
+                });
+
+                if (!isFirstLoad && incomingList.isNotEmpty && incomingList.length > _lastCount) {
+                  final newestNotification = incomingList.first;
+                  
+                  NotificationService.showInstantNotification(
+                    id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                    title: newestNotification['title'] ?? "Order Update",
+                    body: newestNotification['message'] ?? "",
+                  );
+                }
+                
+                isFirstLoad = false;
+                _lastCount = incomingList.length;
+              }
+            }
+          }, onError: (error) {
+            debugPrint("Stream error encountered: $error. Reconnecting in 5s...");
+            Future.delayed(const Duration(seconds: 5), _startRealTimeNotificationStream);
+          }, onDone: () {
+            debugPrint("Streaming server link terminated. Reconnecting...");
+            Future.delayed(const Duration(seconds: 5), _startRealTimeNotificationStream);
+          });
+    }).catchError((e) {
+      debugPrint("Streaming framework error connection drop: $e");
+      Future.delayed(const Duration(seconds: 5), _startRealTimeNotificationStream);
+    });
   }
 
   // 📥 Fetch counts and notifications payload list
@@ -73,7 +136,7 @@ class _NotificationBellState extends State<NotificationBell> {
         IconButton(
           icon: Icon(Icons.notifications_none, color: widget.iconColor),
           onPressed: () {
-            markAsRead(); // Deducts / clears unread balance metrics instantly
+            markAsRead(); 
             _showNotificationsDialog(context);
           },
         ),
@@ -107,12 +170,14 @@ class _NotificationBellState extends State<NotificationBell> {
     );
   }
 
-  Future<void> deleteNotification(String notificationId, int index) async {
+  Future<void> deleteNotification(String notificationId, int index, VoidCallback onStateSync) async {
     final fallbackItem = notificationsList[index];
 
     setState(() {
       notificationsList.removeAt(index);
+      _lastCount = notificationsList.length;
     });
+    onStateSync();
 
     final url = Uri.parse("${ApiService.baseUrl}/get_notifications.php?id=$notificationId&action=delete");
     try {
@@ -122,13 +187,17 @@ class _NotificationBellState extends State<NotificationBell> {
       if (data['status'] != 'success') {
         setState(() {
           notificationsList.insert(index, fallbackItem);
+          _lastCount = notificationsList.length;
         });
+        onStateSync();
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to delete notification.")));
       }
     } catch (e) {
       setState(() {
         notificationsList.insert(index, fallbackItem);
+        _lastCount = notificationsList.length;
       });
+      onStateSync();
       debugPrint("Error deleting notification record entry: $e");
     }
   }
@@ -257,7 +326,7 @@ class _NotificationBellState extends State<NotificationBell> {
               child: const Text("Delete", style: TextStyle(color: Color(0xFFD9534F), fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.of(dialogContext).pop(); // Close dialog first
-                deleteNotification(notificationId, index); // Execute API removal
+                deleteNotification(notificationId, index, onDeleted); // Execute API removal
                 onDeleted(); // Sync sheet UI state
               },
             ),

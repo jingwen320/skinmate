@@ -34,7 +34,39 @@ class NotificationService {
       ),
     );
 
+    await androidImplementation?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'order_updates', 
+        'Order Updates',
+        description: 'Real-time updates regarding your store purchases',
+        importance: Importance.max,
+        playSound: true,
+      ),
+    );
+
     await androidImplementation?.requestNotificationsPermission();
+  }
+
+  static Future<void> showInstantNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    await _notificationsPlugin.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'order_updates',      // Must match the new channel ID above
+          'Order Updates',
+          importance: Importance.max,
+          priority: Priority.high,
+          showWhen: true,
+          playSound: true,
+        ),
+      ),
+    );
   }
 
   static Future<void> scheduleDailyNotification({
