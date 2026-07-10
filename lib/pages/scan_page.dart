@@ -315,6 +315,7 @@ class _ScanPageState extends State<ScanPage> with SingleTickerProviderStateMixin
           context,
           MaterialPageRoute(
             builder: (context) => SkinResultPage(
+              userId: int.parse(widget.userId.toString()),
               skinType: res['skin_type'],
               healthScore: res['health_score'],
               conditions: res['conditions'], 
@@ -449,6 +450,7 @@ class _ScanPageState extends State<ScanPage> with SingleTickerProviderStateMixin
                   context,
                   MaterialPageRoute(
                     builder: (context) => SkinResultPage(
+                      userId: int.parse(widget.userId.toString()),
                       skinType: _result!['skin_type'],
                       healthScore: _result!['health_score'],
                       conditions: _result!['conditions'],

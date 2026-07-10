@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'skincare_recommendation_page.dart';
 
 class SkinResultPage extends StatelessWidget {
+  final int userId;
   final String skinType;
   final int healthScore;
   final Map<String, dynamic> conditions;
 
   const SkinResultPage({
     super.key,
+    required this.userId,
     required this.skinType,
     required this.healthScore,
     required this.conditions,
@@ -23,7 +26,7 @@ class SkinResultPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Analysis Result", 
           style: TextStyle(fontWeight: FontWeight.bold, color: colorPrimary)),
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorSurface,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
@@ -32,7 +35,7 @@ class SkinResultPage extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: 40.0),
         child: Column(
           children: [
             // 1. TOP SCORE SECTION
@@ -46,30 +49,63 @@ class SkinResultPage extends StatelessWidget {
             // 3. DETAILED MARKS SECTION
             const Align(
               alignment: Alignment.centerLeft,
-              child: Text("Condition Breakdown", 
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorPrimary)),
+              child: Text(
+                "Condition Breakdown", 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorPrimary)
+              ),
             ),
             const SizedBox(height: 16),
             
             // Generate bars for each condition
             ...conditions.entries.map((entry) => _buildConditionBar(entry.key, entry.value)).toList(),
             
-            const SizedBox(height: 40),
+            const SizedBox(height: 24),
             
-            // 4. BACK BUTTON
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                ),
-                child: const Text("CLOSE REPORT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            // 4. SECONDARY ACTION: Styled as a clean text button to prevent visual clash
+            // TextButton(
+            //   onPressed: () => Navigator.pop(context),
+            //   child: const Text(
+            //     "CLOSE REPORT", 
+            //     style: TextStyle(color: colorPrimary, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+            //   ),
+            // ),
+          ],
+        ),
+      ),
+      
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SkincareRecommendationPage(userId: userId),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                elevation: 0,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    "FIND MY ROUTINE MATCHES", 
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
