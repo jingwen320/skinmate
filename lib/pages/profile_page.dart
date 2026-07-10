@@ -607,7 +607,7 @@ class _ProfilePageState extends State<ProfilePage> {
           SizedBox(
             width: 45, // Fixed width for consistent right alignment
             child: Text(
-              "${score.toStringAsFixed(0)}%",
+              "${score.toStringAsFixed(1)}%",
               textAlign: TextAlign.end,
               style: TextStyle(
                 fontWeight: FontWeight.bold,

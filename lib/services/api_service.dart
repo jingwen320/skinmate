@@ -287,6 +287,33 @@ class ApiService {
   }
 
   // ========================
+  // SKINCARE RECOMMENDATION
+  // ========================
+  static Future<Map<String, dynamic>?> generateRecommendations({
+    required int userId,
+    required double targetBudget,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/generate_recommendation.php"),
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: {
+          "user_id": userId.toString(),
+          "target_budget": targetBudget.toString(),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      print("API Error: $e");
+      return null;
+    }
+  }
+
+  // ========================
   // CART
   // ========================
   // 🛒 Fetch the live cart items from the PHP backend
