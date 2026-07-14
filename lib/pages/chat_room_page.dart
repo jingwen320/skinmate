@@ -167,6 +167,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
     return Scaffold(
       backgroundColor: colorSurface,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text("Admin Support", style: TextStyle(fontWeight: FontWeight.bold, color: colorPrimary)),
         backgroundColor: colorSurface,
