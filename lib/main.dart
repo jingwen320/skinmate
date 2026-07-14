@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'theme.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/welcome_page.dart';
-import 'main_wrapper.dart'; // 👈 Make sure to import this!
+import 'main_wrapper.dart'; 
 
 import 'package:timezone/data/latest.dart' as tz;
 import 'services/notification_service.dart';
@@ -14,6 +16,7 @@ void main() async {
   tz.initializeTimeZones();
   await NotificationService.init();
   await NotificationService.requestExactAlarmPermission();
+  WebViewPlatform.instance = AndroidWebViewPlatform();
   runApp(const SkinMateApp());
 }
 
