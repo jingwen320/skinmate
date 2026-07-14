@@ -422,8 +422,8 @@ class RefundDetailsPage extends StatelessWidget {
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 64),
                       constraints: const BoxConstraints(
-                        minWidth: 300, 
-                        minHeight: 200,
+                        minWidth: 280, 
+                        minHeight: 150,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
