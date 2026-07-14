@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart'; 
+import 'verify_tac_page.dart';
 //import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -49,26 +50,45 @@ class _RegisterPageState extends State<RegisterPage> {
         _passwordController.text.trim(),
       );
 
-      if (res['status'] == 'success') {
-        // String userId = res['user']['id'].toString();
-        // await ApiService.saveUserSession(userId);
+      // if (res['status'] == 'success') {
+      //   // String userId = res['user']['id'].toString();
+      //   // await ApiService.saveUserSession(userId);
 
-        if (!mounted) return;
-        // Navigator.pushReplacement(
-        //   context,
-        //   MaterialPageRoute(
-        //     builder: (_) => HomePage(userId: userId),
-        //   ),
-        // );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Account created! Please log in."),
-            backgroundColor: Color(0xFF91462E),
+      //   if (!mounted) return;
+      //   // Navigator.pushReplacement(
+      //   //   context,
+      //   //   MaterialPageRoute(
+      //   //     builder: (_) => HomePage(userId: userId),
+      //   //   ),
+      //   // );
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     const SnackBar(
+      //       content: Text("Account created! Please log in."),
+      //       backgroundColor: Color(0xFF91462E),
+      //     ),
+      //   );
+
+      //   Navigator.pushReplacementNamed(context, '/login');
+      // } else {
+      //   _showSnackBar(res['message'] ?? 'Registration failed');
+      // }
+
+      if (res['status'] == 'pending') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerifyTacPage(email: _emailController.text.trim()),
           ),
         );
-
+      } else if (res['status'] == 'success') {
+        _showSnackBar(res['message'] ?? 'Registration success! Login now.');
+        
+        await Future.delayed(const Duration(seconds: 1));
+        
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/login');
       } else {
+        // Handle 'error' or any other status
         _showSnackBar(res['message'] ?? 'Registration failed');
       }
     } catch (e) {

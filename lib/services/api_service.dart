@@ -101,6 +101,37 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> verifyTac(String email, String tac) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/verify_otp.php'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {'email': email, 'otp': tac},
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint("RAW SERVER RESPONSE: ${response.body}"); 
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      return {'status': 'error', 'message': 'Server error: ${response.statusCode}'};
+    } catch (e) {
+      debugPrint("CATCH BLOCK ERROR: $e");
+      return {'status': 'error', 'message': 'Format error: Your server might be returning HTML/Errors instead of JSON.'};
+    }
+  }
+
+  static Future<void> cancelRegistration(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/delete_unverified.php'),
+      body: {'email': email},
+    );
+    
+    if (response.statusCode == 200) {
+      debugPrint("Registration cancelled and record removed.");
+    }
+  }
+
   static Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
       final response = await http.post(
