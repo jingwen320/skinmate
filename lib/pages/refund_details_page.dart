@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'pdf_viewer_page.dart';
 
 class RefundDetailsPage extends StatelessWidget {
   final Map<String, dynamic> ticket;
@@ -348,7 +349,61 @@ class RefundDetailsPage extends StatelessWidget {
     );
   }
 
+  // void _openFullMediaViewer(BuildContext context, String path, bool isPdf) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => Dialog(
+  //       backgroundColor: Colors.transparent,
+  //       insetPadding: const EdgeInsets.all(10),
+  //       child: Stack(
+  //         alignment: Alignment.center,
+  //         children: [
+  //           InteractiveViewer(
+  //             panEnabled: true,
+  //             boundaryMargin: const EdgeInsets.all(20),
+  //             minScale: 0.5,
+  //             maxScale: 4.0,
+  //             child: isPdf
+  //                 ? Container(
+  //                     padding: const EdgeInsets.all(24),
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.white, 
+  //                       borderRadius: BorderRadius.circular(16),
+  //                     ),
+  //                     child: const Column(
+  //                       mainAxisSize: MainAxisSize.min,
+  //                       children: [
+  //                         Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+  //                         SizedBox(height: 16),
+  //                         Text(
+  //                           "PDF Document attached via mobile device.", 
+  //                           style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold),
+  //                         ),
+  //                       ],
+  //                     ),
+  //                   )
+  //                 : Image.network("$serverBaseUrl$path", fit: BoxFit.contain),
+  //           ),
+  //           Positioned(
+  //             top: 20,
+  //             right: 20,
+  //             child: CircleAvatar(
+  //               backgroundColor: Colors.black.withOpacity(0.6),
+  //               child: IconButton(
+  //                 icon: const Icon(Icons.close, color: Colors.white),
+  //                 onPressed: () => Navigator.pop(context),
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
   void _openFullMediaViewer(BuildContext context, String path, bool isPdf) {
+    final Uri url = Uri.parse("$serverBaseUrl$path");
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -357,32 +412,56 @@ class RefundDetailsPage extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
+            // Content Area
             InteractiveViewer(
-              panEnabled: true,
+              panEnabled: !isPdf, // Disable pan for PDF container
               boundaryMargin: const EdgeInsets.all(20),
               minScale: 0.5,
               maxScale: 4.0,
               child: isPdf
                   ? Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 64),
+                      constraints: const BoxConstraints(
+                        minWidth: 280, 
+                        minHeight: 150,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.white, 
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Column(
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
-                          SizedBox(height: 16),
-                          Text(
-                            "PDF Document attached via mobile device.", 
-                            style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold),
+                          const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "PDF Document",
+                            style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              // if (await canLaunchUrl(url)) {
+                              //   await launchUrl(url, mode: LaunchMode.externalApplication);
+                              // }
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PdfViewerPage(url: "$serverBaseUrl$path"),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text("OPEN PDF"),
+                            style: ElevatedButton.styleFrom(backgroundColor: colorPrimary, foregroundColor: Colors.white),
                           ),
                         ],
                       ),
                     )
                   : Image.network("$serverBaseUrl$path", fit: BoxFit.contain),
             ),
+            
+            // Close Button
             Positioned(
               top: 20,
               right: 20,

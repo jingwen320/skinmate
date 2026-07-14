@@ -923,21 +923,21 @@ class ApiService {
   }
 
   static Future<bool> closeChatRoom(int roomId) async {
-  try {
-    final response = await http.post(
-      Uri.parse('$baseUrl/close_chat_room.php'),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"room_id": roomId}),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/close_chat_room.php'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"room_id": roomId}),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['status'] == 'success';
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] == 'success';
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error closing chat room: $e");
+      return false;
     }
-    return false;
-  } catch (e) {
-    debugPrint("Error closing chat room: $e");
-    return false;
   }
-}
 }
