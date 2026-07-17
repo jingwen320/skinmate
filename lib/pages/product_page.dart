@@ -447,7 +447,7 @@ class _ProductPageState extends State<ProductPage> {
               backgroundColor: Colors.white.withOpacity(0.7),
               child: IconButton(
                 icon: Icon(Icons.arrow_back_ios_new, color: colorOnSurface, size: 18),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context, isWishlist),
               ),
             ),
             ClipRRect(

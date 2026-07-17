@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   List products = [];
   Map<String, dynamic>? user;
   bool isLoading = true;
@@ -163,8 +163,6 @@ class _HomePageState extends State<HomePage> {
       if (wishlistRes['status'] == 'success' && wishlistArray != null) {
         for (var item in wishlistArray) {
           
-          // 🛑 CRITICAL FIX HERE:
-          // Because your SQL query joins `products p`, the product's ID is stored in 'id'
           if (item['id'] != null) {
             String productDbId = item['id'].toString().trim();
             wishlistedProductIds.add(productDbId);
@@ -235,8 +233,25 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Future<void> _refreshWishlistOnly() async {
+  //   final Map<String, dynamic> response = await ApiService.getWishlist(widget.userId); 
+    
+  //   final List<dynamic> idList = response['data'] ?? []; 
+    
+  //   if (mounted) {
+  //     setState(() {
+  //       wishlistedProductIds = idList.map((id) => id.toString().trim()).toSet();
+  //     });
+  //     debugPrint("Refreshed Wishlist Set: $wishlistedProductIds");
+  //   }
+  // }
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // final filteredProducts = products.where((product) {
     //   // 1. Evaluate Category Match Logic
     //   final String prodCategory = (product['product_category'] ?? product['category'] ?? '').toString().toLowerCase();
@@ -331,8 +346,9 @@ class _HomePageState extends State<HomePage> {
           RefreshIndicator(
             onRefresh: _fetchProducts,
             color: colorPrimary,
-            edgeOffset: 120, // 👈 Pushes the spinner below the sticky bar
+            edgeOffset: 120, 
             child: CustomScrollView(
+              key: const PageStorageKey<String>('home_product_scroll_position'),
               physics: const BouncingScrollPhysics(),
               slivers: [
                 // 🛑 SPACER: Prevents first item from being hidden under the header
@@ -439,6 +455,8 @@ class _HomePageState extends State<HomePage> {
 
                   // 6. SORTING OPTIONS
                   SliverToBoxAdapter(child: _buildSortSection()),
+
+                  SliverToBoxAdapter(child: _buildProductCount(availableProducts, soldOutProducts)),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 15)),
 
@@ -951,6 +969,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildProductCount(List available, List soldOut) {
+    final int count = available.length + soldOut.length;
+    
+    final bool isFiltered = _selectedCategory != 'All' || 
+                          _selectedBrand != 'All' || 
+                          _maxBudget < _absoluteMaxPrice || 
+                          _selectedConditions.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Text(
+        isFiltered ? "Showing $count products found" : "Showing all $count products",
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Manrope',
+          color: const Color(0xFF2E2F2D).withOpacity(0.5),
+        ),
+      ),
+    );
+  }
+
   Widget _buildProductCard(dynamic product, {required bool isSoldOut}) {
     final String imageTarget = product['image_url'] ?? '';
     final String prodId = product['id'].toString().trim();
@@ -964,14 +1004,27 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () async {
         // 🌟 Wait for the user to finish viewing the product page
-        await Navigator.push(
+        final bool? updatedIsWishlisted = await Navigator.push(
             context,
             MaterialPageRoute(
                 builder: (_) =>
                     ProductPage(userId: widget.userId, productId: prodId)));
+
+        if (updatedIsWishlisted != null) {
+          setState(() {
+            if (updatedIsWishlisted) {
+              wishlistedProductIds.add(prodId);
+            } else {
+              wishlistedProductIds.remove(prodId);
+            }
+          });
+        }
         
+        // await _refreshWishlistOnly();
+
         // 🌟 When they press back and return here, automatically refresh the heart states!
-        _fetchProducts(); 
+        // _fetchProducts(); 
+        // setState(() {});
       },
       child: Opacity(
         opacity: isSoldOut ? 0.6 : 1.0,
@@ -1030,7 +1083,6 @@ class _HomePageState extends State<HomePage> {
                     ),
 
                   // 3. CLEAN SINGLE ANIMATED WISHLIST HEART ICON POSITIONED BUTTON
-                  // We wrap it in a single negation block so it doesn't show up on sold out items
                   if (!isSoldOut)
                     Positioned(
                       bottom: 12,
@@ -1052,9 +1104,11 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 200),
+                            transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
                             child: Icon(
                               isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                              key: ValueKey<bool>(isWishlisted),
+                              // key: ValueKey<bool>(isWishlisted),
+                              key: ValueKey<String>('${prodId}_$isWishlisted'),
                               color: isWishlisted ? const Color(0xFF91462E) : colorPrimary,
                               size: 18,
                             ),
