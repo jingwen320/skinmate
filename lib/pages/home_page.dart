@@ -34,6 +34,30 @@ class _HomePageState extends State<HomePage> {
     'Price: Highest to Lowest'
   ];
 
+  String _selectedBrand = 'All';
+
+  final List<String> _brands = [
+    'All', 
+    'Skintific', 
+    'Glad2Glow', 
+    'Hada Labo', 
+    'Cetaphil', 
+    'Bio-essence'
+  ];
+
+  final Set<String> _selectedConditions = {};
+
+  final List<String> _skinConditions = [
+    'Acne', 
+    'Pores', 
+    'Dark Spots', 
+    'Pigmentation', 
+    'Redness', 
+    'Wrinkles'
+  ];
+
+  bool _isConditionDropdownOpen = false;
+
   String _userName = "User"; // Default fallback
 
   Set<String> wishlistedProductIds = {};
@@ -42,6 +66,21 @@ class _HomePageState extends State<HomePage> {
   Timer? _debounce;
   List<dynamic> _searchResults = [];
   bool _isSearchLoading = false;
+
+  List get filteredProducts {
+    return products.where((product) {
+      final matchesCategory = _selectedCategory == 'All' || 
+                            product['category'] == _selectedCategory;
+
+      final matchesBrand = _selectedBrand == 'All' || 
+                          product['brand'] == _selectedBrand;
+      
+      final price = double.tryParse(product['price'].toString()) ?? 0.0;
+      final matchesPrice = price <= _maxBudget;
+      
+      return matchesCategory && matchesBrand && matchesPrice;
+    }).toList();
+  }
 
   // 🎨 Radiant Palette
   final Color colorPrimary = const Color(0xFF91462E);
@@ -198,8 +237,25 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // final filteredProducts = products.where((product) {
+    //   // 1. Evaluate Category Match Logic
+    //   final String prodCategory = (product['product_category'] ?? product['category'] ?? '').toString().toLowerCase();
+    //   final String selectedFilter = _selectedCategory.toLowerCase();
+      
+    //   bool matchesCategory = _selectedCategory == 'All' ||
+    //       prodCategory == selectedFilter ||
+    //       prodCategory == selectedFilter.replaceAll(RegExp(r's$'), '') ||
+    //       selectedFilter == prodCategory.replaceAll(RegExp(r's$'), '');
+
+    //   // 2. Evaluate Dynamic Slider Budget Limit Range Match
+    //   final double price = double.tryParse(product['price'].toString()) ?? 0.0;
+    //   bool matchesBudget = price <= _maxBudget;
+
+    //   return matchesCategory && matchesBudget;
+    // }).toList();
+
     final filteredProducts = products.where((product) {
-      // 1. Evaluate Category Match Logic
+      // 1. Evaluate Category Match
       final String prodCategory = (product['product_category'] ?? product['category'] ?? '').toString().toLowerCase();
       final String selectedFilter = _selectedCategory.toLowerCase();
       
@@ -208,11 +264,22 @@ class _HomePageState extends State<HomePage> {
           prodCategory == selectedFilter.replaceAll(RegExp(r's$'), '') ||
           selectedFilter == prodCategory.replaceAll(RegExp(r's$'), '');
 
-      // 2. Evaluate Dynamic Slider Budget Limit Range Match
+      bool matchesCondition = true;
+      if (_selectedConditions.isNotEmpty) {
+        final String desc = (product['description'] ?? '').toString().toLowerCase();
+        matchesCondition = _selectedConditions.any((c) => desc.contains(c.toLowerCase()));
+      }
+
+      // 2. Evaluate Dynamic Slider Budget Limit
       final double price = double.tryParse(product['price'].toString()) ?? 0.0;
       bool matchesBudget = price <= _maxBudget;
 
-      return matchesCategory && matchesBudget;
+      // 3. NEW: Evaluate Brand Match
+      final String prodBrand = (product['brand'] ?? '').toString();
+      bool matchesBrand = _selectedBrand == 'All' || 
+                          prodBrand.toLowerCase() == _selectedBrand.toLowerCase();
+
+      return matchesCategory && matchesBudget && matchesBrand && matchesCondition;
     }).toList();
 
     if (_selectedSortOption == 'Price: Lowest to Highest') {
@@ -362,8 +429,13 @@ class _HomePageState extends State<HomePage> {
                   // 4. CATEGORIES
                   SliverToBoxAdapter(child: _buildCategoriesSection()),
 
+
+                  SliverToBoxAdapter(child: _buildBrandFilter()),
+
                   // 5. BUDGET SLIDER
                   SliverToBoxAdapter(child: _buildBudgetSliderSection()),
+
+                  SliverToBoxAdapter(child: _buildConditionFilter()),
 
                   // 6. SORTING OPTIONS
                   SliverToBoxAdapter(child: _buildSortSection()),
@@ -592,6 +664,131 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrandFilter() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 6),
+      child: SizedBox(
+        height: 40, 
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: _brands.length,
+          itemBuilder: (context, index) {
+            final brand = _brands[index];
+            final isSelected = _selectedBrand == brand;
+            
+            return GestureDetector(
+              onTap: () => setState(() => _selectedBrand = brand),
+              child: Container(
+                margin: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? colorPrimary : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected ? colorPrimary : Colors.black.withOpacity(0.04),
+                  ),
+                  // Adds a soft lift effect when selected
+                  boxShadow: isSelected ? [
+                    BoxShadow(
+                      color: colorPrimary.withOpacity(0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
+                  ] : [],
+                ),
+                child: Center(
+                  child: Text(
+                    brand,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Manrope',
+                      color: isSelected ? Colors.white : const Color(0xFF2E2F2D).withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConditionFilter() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _isConditionDropdownOpen = !_isConditionDropdownOpen),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black.withOpacity(0.04)),
+                // Optional: Add same soft shadow as brand filter for consistency
+                boxShadow: _isConditionDropdownOpen ? [
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+                ] : [],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _selectedConditions.isEmpty 
+                        ? "Filter by Concerns" 
+                        : "${_selectedConditions.length} Concerns Selected",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 13, 
+                      fontFamily: 'Manrope',
+                      color: _selectedConditions.isEmpty ? const Color(0xFF2E2F2D).withOpacity(0.6) : colorPrimary
+                    ),
+                  ),
+                  Icon(_isConditionDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: colorPrimary),
+                ],
+              ),
+            ),
+          ),
+          
+          if (_isConditionDropdownOpen)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8), 
+              decoration: BoxDecoration(
+                color: Colors.white, 
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black.withOpacity(0.04)),
+              ),
+              child: Column(
+                children: _skinConditions.map((condition) {
+                  final isChecked = _selectedConditions.contains(condition);
+                  return SizedBox(
+                    height: 44, // Slightly taller for easier tapping
+                    child: CheckboxListTile(
+                      title: Text(condition, style: const TextStyle(fontSize: 13, fontFamily: 'Manrope')),
+                      value: isChecked,
+                      activeColor: colorPrimary,
+                      checkboxShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          if (value == true) _selectedConditions.add(condition);
+                          else _selectedConditions.remove(condition);
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
         ],
       ),
     );
