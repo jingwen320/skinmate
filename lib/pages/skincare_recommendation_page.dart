@@ -92,6 +92,7 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
   @override
   void initState() {
     super.initState();
+    _fetchProducts();
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   _showBudgetBottomSheet();
     // });
@@ -645,19 +646,29 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
   //   );
   // }
 
-  Widget _buildProductCard(ProductRecommendation product) {
+  Widget _buildProductCard(ProductRecommendation product) {    
     // Check if this specific item is in our wishlist
     final bool isWishlisted = wishlistedProductIds.contains(product.id.toString());
 
     return GestureDetector(
       onTap: () async {
-        await Navigator.push(
+        final bool? updatedIsWishlisted = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ProductPage(userId: widget.userId.toString(), productId: product.id.toString())
           ),
         );
-        _fetchProducts(); 
+
+        if (updatedIsWishlisted != null) {
+          setState(() {
+            if (updatedIsWishlisted) {
+              wishlistedProductIds.add(product.id.toString().trim());
+            } else {
+              wishlistedProductIds.remove(product.id.toString().trim());
+            }
+          });
+        }
+        // _fetchProducts(); 
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
