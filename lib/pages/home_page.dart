@@ -105,6 +105,20 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
     super.dispose();
   }
 
+  void _resetFilters() {
+    setState(() {
+      _selectedCategory = 'All';
+      _selectedBrand = 'All';
+      _maxBudget = 250.0;
+      _selectedConditions.clear();
+      _selectedSortOption = 'Latest to Oldest';
+      
+      // Clear search too, if you want the reset to show all products
+      _searchController.clear();
+      _searchResults.clear();
+    });
+  }
+
   // ⏱️ Debounce handler: stops API spam while typing
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -453,10 +467,68 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
                   SliverToBoxAdapter(child: _buildConditionFilter()),
 
+                  // if (_selectedCategory != 'All' || _selectedBrand != 'All' || _maxBudget < 250.0 || _selectedConditions.isNotEmpty)
+                  //   SliverToBoxAdapter(
+                  //     child: Center(
+                  //       child: TextButton.icon(
+                  //         onPressed: _resetFilters,
+                  //         icon: const Icon(Icons.refresh, size: 16),
+                  //         label: const Text("Reset Filters"),
+                  //         style: TextButton.styleFrom(
+                  //           foregroundColor: colorPrimary,
+                  //           textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ),
+
                   // 6. SORTING OPTIONS
                   SliverToBoxAdapter(child: _buildSortSection()),
 
-                  SliverToBoxAdapter(child: _buildProductCount(availableProducts, soldOutProducts)),
+                  // SliverToBoxAdapter(child: _buildProductCount(availableProducts, soldOutProducts)),
+
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6, right: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Count left, Reset right
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Left: Product Count
+                          Expanded(
+                            child: _buildProductCount(availableProducts, soldOutProducts),
+                          ),
+                          
+                          // Right: Reset Button (Visible only when filters are active)
+                          if (_selectedCategory != 'All' || _selectedBrand != 'All' || _maxBudget < 250.0 || _selectedConditions.isNotEmpty)
+                            InkWell(
+                              onTap: _resetFilters,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: colorPrimary.withOpacity(0.1), // Used your theme color
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      "Reset All", 
+                                      style: TextStyle(
+                                        fontSize: 12, 
+                                        fontWeight: FontWeight.bold, 
+                                        color: colorPrimary 
+                                      )
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.refresh, size: 16, color: colorPrimary), 
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 15)),
 
