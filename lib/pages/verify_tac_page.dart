@@ -78,7 +78,7 @@ class _VerifyTacPageState extends State<VerifyTacPage> {
                               maxLength: 6,
                               style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
                               decoration: const InputDecoration(
-                                hintText: '000000',
+                                hintText: '••••••',
                                 border: OutlineInputBorder(),
                               ),
                             ),

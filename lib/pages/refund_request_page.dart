@@ -31,6 +31,7 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
   final TextEditingController _descController = TextEditingController();
   // File? _proofFile;
   bool _isLoadingItems = true;
+  bool _agreedToTerms = false;
   bool _isSubmitting = false;
 
   final List<String> _reasons = ["Did not receive", "Received broken", "Allergy"];
@@ -152,6 +153,13 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
     if (_proofFiles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please upload at least one proof image or document."))
+      );
+      return;
+    }
+
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You must agree to the terms and review notice before submitting.")),
       );
       return;
     }
@@ -533,6 +541,51 @@ class _RefundRequestPageState extends State<RefundRequestPage> {
                     ),
                     const SizedBox(height: 20),
                   ],
+
+                  // 🛡️ Consent Agreement Checkbox Container
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: _agreedToTerms,
+                            activeColor: colorPrimary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _agreedToTerms = value ?? false;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _agreedToTerms = !_agreedToTerms;
+                              });
+                            },
+                            child: const Text(
+                              "I understand that my refund request will be reviewed and processed (may be approved or rejected). I confirm that I have chosen a real reason and submitted appropriate, authentic proof.",
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 11.5,
+                                color: Colors.black87,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
 
                   // SAVE/SUBMIT REQUEST TRIGGER BUTTON
                   SizedBox(

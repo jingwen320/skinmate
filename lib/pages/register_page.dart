@@ -19,6 +19,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _loading = false;
   bool _isObscure = true; 
   bool _isObscureConfirm = true; // 2. New visibility state
+  bool _hasAgreed = false;
 
   void _register() async {
     // Check if any fields are empty
@@ -39,6 +40,11 @@ class _RegisterPageState extends State<RegisterPage> {
     // Check if passwords match
     if (_passwordController.text != _confirmPasswordController.text) {
       _showSnackBar("Passwords do not match!");
+      return;
+    }
+
+    if (!_hasAgreed) {
+      _showSnackBar("Please agree to the personal data collection policy");
       return;
     }
 
@@ -232,7 +238,47 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 24),
+
+                          // Personal Data Collection Agreement
+                          Row(
+                            children: [
+                              SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: Checkbox(
+                                  value: _hasAgreed,
+                                  activeColor: colorPrimary,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _hasAgreed = value ?? false;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _hasAgreed = !_hasAgreed;
+                                    });
+                                  },
+                                  child: const Text(
+                                    'I agree to the collection and use of my personal data for skin analysis and account services.',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 12,
+                                      color: colorOnSurfaceVariant,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
 
                           // Register Button
                           SizedBox(
