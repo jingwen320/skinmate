@@ -539,14 +539,72 @@ class _ProductPageState extends State<ProductPage> {
               ],
             ),
             const SizedBox(height: 14),
+            // SizedBox(
+            //   width: double.infinity,
+            //   child: ElevatedButton(
+            //     onPressed: isOutOfStock ? null : _handleAddToCart,
+            //     style: ElevatedButton.styleFrom(
+            //       backgroundColor: colorPrimary,
+            //       foregroundColor: Colors.white,
+            //       disabledBackgroundColor: Colors.grey[300],
+            //       disabledForegroundColor: Colors.grey[500],
+            //       elevation: 0,
+            //       padding: const EdgeInsets.symmetric(vertical: 16),
+            //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            //     ),
+            //     child: Row(
+            //       mainAxisAlignment: MainAxisAlignment.center,
+            //       children: [
+            //         // 🌟 OPTIMIZATION: Only show the shopping bag icon if the item is in stock
+            //         if (!isOutOfStock) ...[
+            //           const Icon(Icons.shopping_bag_outlined, size: 18),
+            //           const SizedBox(width: 8),
+            //         ],
+            //         Text(
+            //           isOutOfStock ? "SOLD OUT" : "Add to Cart",
+            //           style: const TextStyle(
+            //             fontSize: 14, 
+            //             fontWeight: FontWeight.bold, 
+            //             fontFamily: 'Plus Jakarta Sans',
+            //           ),
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: isOutOfStock ? null : _handleAddToCart,
+                onPressed: () async {
+                  if (isOutOfStock) {
+                    // 🔔 Handle Restock Notification Subscription
+                    final response = await ApiService.subscribeRestock(
+                      userId: widget.userId, 
+                      productId: product['id'].toString()
+                    );
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            response['status'] == 'success' 
+                              ? "We'll notify you when this item is back in stock!" 
+                              : (response['message'] ?? "Failed to set notification.")
+                          ),
+                        ),
+                      );
+                    }
+                  } else {
+                    // 🛒 Existing Add to Cart logic
+                    _handleAddToCart();
+                  }
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colorPrimary,
+                  // backgroundColor: colorPrimary,
+                  backgroundColor: isOutOfStock ? Colors.black87 : colorPrimary,
                   foregroundColor: Colors.white,
-                  // 🌟 ADDED: Colors for when the button state turns to disabled
+                  // foregroundColor: isOutOfStock ? Colors.black87 : Colors.white,
                   disabledBackgroundColor: Colors.grey[300],
                   disabledForegroundColor: Colors.grey[500],
                   elevation: 0,
@@ -555,15 +613,14 @@ class _ProductPageState extends State<ProductPage> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  // 🌟 FIX: Removed 'const' from here because the children list contains dynamic ternary logic
                   children: [
-                    // 🌟 OPTIMIZATION: Only show the shopping bag icon if the item is in stock
-                    if (!isOutOfStock) ...[
-                      const Icon(Icons.shopping_bag_outlined, size: 18),
-                      const SizedBox(width: 8),
-                    ],
+                    Icon(
+                      isOutOfStock ? Icons.notifications_active_outlined : Icons.shopping_bag_outlined, 
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      isOutOfStock ? "SOLD OUT" : "Add to Cart",
+                      isOutOfStock ? "NOTIFY WHEN AVAILABLE" : "Add to Cart",
                       style: const TextStyle(
                         fontSize: 14, 
                         fontWeight: FontWeight.bold, 
@@ -763,7 +820,6 @@ class _ProductPageState extends State<ProductPage> {
                             reviewController: reviewController, 
                             colorBackground: colorBackground, 
                             rating: rating, 
-                            // 🌟 FIX: Clean block body execution syntax for setState updates
                             onRatingChanged: (val) {
                               setState(() {
                                 rating = val;
