@@ -70,6 +70,17 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
     'Price: Highest to Lowest'
   ];
 
+  String _selectedBrand = 'All';
+
+  final List<String> _brands = [
+    'All', 
+    'Skintific', 
+    'Glad2Glow', 
+    'Hada Labo', 
+    'Cetaphil', 
+    'Bio-essence'
+  ];
+
   Set<String> wishlistedProductIds = {};
   
   String skinTypeStr = '';
@@ -92,6 +103,7 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
   @override
   void initState() {
     super.initState();
+    _fetchProducts();
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   _showBudgetBottomSheet();
     // });
@@ -533,6 +545,7 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
           ],
           bottom: TabBar(
             isScrollable: true,
+            tabAlignment: TabAlignment.start,
             indicatorColor: colorPrimary,
             labelColor: colorPrimary,
             unselectedLabelColor: Colors.grey,
@@ -541,12 +554,26 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
         ),
         body: TabBarView(
           children: categories.map((categorySelection) {
-            final filteredList = categorySelection == 'All'
-                ? allProducts
-                : allProducts.where((p) => p.category.toLowerCase() == categorySelection.toLowerCase()).toList();
+            // final filteredList = categorySelection == 'All'
+            //     ? allProducts
+            //     : allProducts.where((p) => p.category.toLowerCase() == categorySelection.toLowerCase()).toList();
+
+            final filteredList = allProducts.where((p) {
+              final matchesCategory = (categorySelection == 'All' || 
+                                      p.category.toLowerCase() == categorySelection.toLowerCase());
+                                      
+              final matchesBrand = (_selectedBrand == 'All' || 
+                                    p.brand.toLowerCase() == _selectedBrand.toLowerCase());
+
+              return matchesCategory && matchesBrand;
+            }).toList();
 
             return Column(
               children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 16.0), 
+                  child: _buildBrandFilter(),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Row(
@@ -575,8 +602,26 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
                               ),
                       ),
 
+                      // _buildBrandFilter(),
+                      // const SizedBox(width: 12),
                       _buildSortSection(),
+
+                      // Row(
+                      //   children: [
+                      //     _buildBrandFilter(),
+                      //     const SizedBox(width: 8),
+                      //     _buildSortSection(),
+                      //   ],
+                      // ),
                     ],
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildProductCount(filteredList, categorySelection),
                   ),
                 ),
 
@@ -645,19 +690,45 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
   //   );
   // }
 
-  Widget _buildProductCard(ProductRecommendation product) {
+  Widget _buildProductCount(List filteredList, String currentCategory) {
+    final int count = filteredList.length;
+    
+    final bool isFiltered = currentCategory != 'All' || _selectedBrand != 'All';
+
+    return Text(
+      isFiltered ? "Showing $count products" : "Showing all $count products",
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        fontFamily: 'Manrope',
+        color: const Color(0xFF2E2F2D).withOpacity(0.5),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(ProductRecommendation product) {    
     // Check if this specific item is in our wishlist
     final bool isWishlisted = wishlistedProductIds.contains(product.id.toString());
 
     return GestureDetector(
       onTap: () async {
-        await Navigator.push(
+        final bool? updatedIsWishlisted = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ProductPage(userId: widget.userId.toString(), productId: product.id.toString())
           ),
         );
-        _fetchProducts(); 
+
+        if (updatedIsWishlisted != null) {
+          setState(() {
+            if (updatedIsWishlisted) {
+              wishlistedProductIds.add(product.id.toString().trim());
+            } else {
+              wishlistedProductIds.remove(product.id.toString().trim());
+            }
+          });
+        }
+        // _fetchProducts(); 
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,21 +761,21 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
                 ),
 
                 // Match Score Badge: Floating at the top
-                // Positioned(
-                //   top: 10, left: 10,
-                //   child: Container(
-                //     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                //     decoration: BoxDecoration(
-                //       color: Colors.white.withOpacity(0.95),
-                //       borderRadius: BorderRadius.circular(8),
-                //       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
-                //     ),
-                //     child: Text(
-                //       "${product.matchScore}% Match", 
-                //       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colorPrimary),
-                //     ),
-                //   ),
-                // ),
+                Positioned(
+                  top: 10, left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                    ),
+                    child: Text(
+                      "${product.matchScore}% Match", 
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colorPrimary),
+                    ),
+                  ),
+                ),
 
                 // Wishlist Heart: Floating at the bottom
                 Positioned(
@@ -752,6 +823,54 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: colorPrimary),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBrandFilter() {
+    return SizedBox(
+      height: 40, 
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16), // Padding here instead
+        itemCount: _brands.length,
+        itemBuilder: (context, index) {
+          final brand = _brands[index];
+          final isSelected = _selectedBrand == brand;
+          
+          return GestureDetector(
+            onTap: () => setState(() => _selectedBrand = brand),
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? colorPrimary : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected ? colorPrimary : Colors.black.withOpacity(0.04),
+                ),
+                boxShadow: isSelected ? [
+                  BoxShadow(
+                    color: colorPrimary.withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ] : [],
+              ),
+              child: Center(
+                child: Text(
+                  brand,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Manrope',
+                    color: isSelected ? Colors.white : const Color(0xFF2E2F2D).withOpacity(0.7),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -78,12 +78,49 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     return "(+60) $body";
   }
 
+  String _calculateEstimatedArrival(String shippedAtStr, String regionOrState) {
+    if (shippedAtStr.isEmpty) return '';
+
+    try {
+      DateTime shippedDate = DateTime.parse(shippedAtStr);
+      
+      // Check if East Malaysia (Sabah, Sarawak, Labuan) or West Malaysia
+      String region = regionOrState.toLowerCase();
+      bool isEastMalaysia = region.contains('sabah') || 
+                            region.contains('sarawak') || 
+                            region.contains('labuan') || 
+                            region.contains('east malaysia');
+
+      // Add business days (or calendar days for estimate)
+      int minDays = isEastMalaysia ? 3 : 1;
+      int maxDays = isEastMalaysia ? 7 : 3;
+
+      DateTime minArrival = shippedDate.add(Duration(days: minDays));
+      DateTime maxArrival = shippedDate.add(Duration(days: maxDays));
+
+      String formattedMin = "${minArrival.day} ${_getMonthName(minArrival.month)}";
+      String formattedMax = "${maxArrival.day} ${_getMonthName(maxArrival.month)}";
+
+      return "$formattedMin – $formattedMax";
+    } catch (e) {
+      return '1–3 Working Days';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
   @override
   Widget build(BuildContext context) {
     const colorPrimary = Color(0xFF91462E);
     const colorSurface = Color(0xFFF7F6F3);
 
     final addressLines = _getFormattedAddressLines();
+
+    final String trackingNo = _orderDetails?['tracking_no'] ?? '';
+    final String shippedAt = _orderDetails?['shipped_at'] ?? '';
 
     return Scaffold(
       backgroundColor: colorSurface,
@@ -225,7 +262,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                               );
                             }),
                             
-                            const Divider(height: 20),
+                            const Divider(height: 30),
                             
                             const Text(
                               "Shipping Address", 
@@ -267,6 +304,72 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                             
                             // 🏠 Render dynamically joined address blocks with intelligent punctuation placement
                             ...addressLines.map((line) => _addressText(line)),
+
+                            // const Divider(height: 30),
+
+                            if (trackingNo.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: colorPrimary.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: colorPrimary.withOpacity(0.15)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // const Text(
+                                    //   "DHL Express Tracking",
+                                    //   style: TextStyle(
+                                    //     fontWeight: FontWeight.bold,
+                                    //     fontSize: 13,
+                                    //     fontFamily: 'Plus Jakarta Sans',
+                                    //     color: colorPrimary,
+                                    //   ),
+                                    // ),
+                                    // const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text("Tracking No", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                        Text(
+                                          trackingNo,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text("Est. Arrival", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                        Text(
+                                          _calculateEstimatedArrival(
+                                            shippedAt, 
+                                            _orderDetails!['region'] ?? _orderDetails!['state'] ?? ''
+                                          ),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
+                            // if (trackingNo.isNotEmpty) ...[
+                            //   const Divider(height: 30),
+                            //   _infoRow("Tracking No.", trackingNo, valueColor: colorPrimary),
+                            //   _infoRow(
+                            //     "Est. Arrival", 
+                            //     _calculateEstimatedArrival(
+                            //       shippedAt, 
+                            //       (_orderDetails!['address']?['region'] ?? _orderDetails!['address']?['state'] ?? '').toString()
+                            //     ), 
+                            //     valueColor: Colors.green.shade700
+                            //   ),
+                            // ],
 
                             const Divider(height: 30),
 

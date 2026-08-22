@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   List products = [];
   Map<String, dynamic>? user;
   bool isLoading = true;
@@ -34,6 +34,30 @@ class _HomePageState extends State<HomePage> {
     'Price: Highest to Lowest'
   ];
 
+  String _selectedBrand = 'All';
+
+  final List<String> _brands = [
+    'All', 
+    'Skintific', 
+    'Glad2Glow', 
+    'Hada Labo', 
+    'Cetaphil', 
+    'Bio-essence'
+  ];
+
+  final Set<String> _selectedConditions = {};
+
+  final List<String> _skinConditions = [
+    'Acne', 
+    'Pores', 
+    'Dark Spots', 
+    'Pigmentation', 
+    'Redness', 
+    'Wrinkles'
+  ];
+
+  bool _isConditionDropdownOpen = false;
+
   String _userName = "User"; // Default fallback
 
   Set<String> wishlistedProductIds = {};
@@ -42,6 +66,21 @@ class _HomePageState extends State<HomePage> {
   Timer? _debounce;
   List<dynamic> _searchResults = [];
   bool _isSearchLoading = false;
+
+  List get filteredProducts {
+    return products.where((product) {
+      final matchesCategory = _selectedCategory == 'All' || 
+                            product['category'] == _selectedCategory;
+
+      final matchesBrand = _selectedBrand == 'All' || 
+                          product['brand'] == _selectedBrand;
+      
+      final price = double.tryParse(product['price'].toString()) ?? 0.0;
+      final matchesPrice = price <= _maxBudget;
+      
+      return matchesCategory && matchesBrand && matchesPrice;
+    }).toList();
+  }
 
   // 🎨 Radiant Palette
   final Color colorPrimary = const Color(0xFF91462E);
@@ -64,6 +103,20 @@ class _HomePageState extends State<HomePage> {
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedCategory = 'All';
+      _selectedBrand = 'All';
+      _maxBudget = 250.0;
+      _selectedConditions.clear();
+      _selectedSortOption = 'Latest to Oldest';
+      
+      // Clear search too, if you want the reset to show all products
+      _searchController.clear();
+      _searchResults.clear();
+    });
   }
 
   // ⏱️ Debounce handler: stops API spam while typing
@@ -124,8 +177,6 @@ class _HomePageState extends State<HomePage> {
       if (wishlistRes['status'] == 'success' && wishlistArray != null) {
         for (var item in wishlistArray) {
           
-          // 🛑 CRITICAL FIX HERE:
-          // Because your SQL query joins `products p`, the product's ID is stored in 'id'
           if (item['id'] != null) {
             String productDbId = item['id'].toString().trim();
             wishlistedProductIds.add(productDbId);
@@ -196,10 +247,44 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Future<void> _refreshWishlistOnly() async {
+  //   final Map<String, dynamic> response = await ApiService.getWishlist(widget.userId); 
+    
+  //   final List<dynamic> idList = response['data'] ?? []; 
+    
+  //   if (mounted) {
+  //     setState(() {
+  //       wishlistedProductIds = idList.map((id) => id.toString().trim()).toSet();
+  //     });
+  //     debugPrint("Refreshed Wishlist Set: $wishlistedProductIds");
+  //   }
+  // }
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    // final filteredProducts = products.where((product) {
+    //   // 1. Evaluate Category Match Logic
+    //   final String prodCategory = (product['product_category'] ?? product['category'] ?? '').toString().toLowerCase();
+    //   final String selectedFilter = _selectedCategory.toLowerCase();
+      
+    //   bool matchesCategory = _selectedCategory == 'All' ||
+    //       prodCategory == selectedFilter ||
+    //       prodCategory == selectedFilter.replaceAll(RegExp(r's$'), '') ||
+    //       selectedFilter == prodCategory.replaceAll(RegExp(r's$'), '');
+
+    //   // 2. Evaluate Dynamic Slider Budget Limit Range Match
+    //   final double price = double.tryParse(product['price'].toString()) ?? 0.0;
+    //   bool matchesBudget = price <= _maxBudget;
+
+    //   return matchesCategory && matchesBudget;
+    // }).toList();
+
     final filteredProducts = products.where((product) {
-      // 1. Evaluate Category Match Logic
+      // 1. Evaluate Category Match
       final String prodCategory = (product['product_category'] ?? product['category'] ?? '').toString().toLowerCase();
       final String selectedFilter = _selectedCategory.toLowerCase();
       
@@ -208,11 +293,22 @@ class _HomePageState extends State<HomePage> {
           prodCategory == selectedFilter.replaceAll(RegExp(r's$'), '') ||
           selectedFilter == prodCategory.replaceAll(RegExp(r's$'), '');
 
-      // 2. Evaluate Dynamic Slider Budget Limit Range Match
+      bool matchesCondition = true;
+      if (_selectedConditions.isNotEmpty) {
+        final String desc = (product['description'] ?? '').toString().toLowerCase();
+        matchesCondition = _selectedConditions.any((c) => desc.contains(c.toLowerCase()));
+      }
+
+      // 2. Evaluate Dynamic Slider Budget Limit
       final double price = double.tryParse(product['price'].toString()) ?? 0.0;
       bool matchesBudget = price <= _maxBudget;
 
-      return matchesCategory && matchesBudget;
+      // 3. NEW: Evaluate Brand Match
+      final String prodBrand = (product['brand'] ?? '').toString();
+      bool matchesBrand = _selectedBrand == 'All' || 
+                          prodBrand.toLowerCase() == _selectedBrand.toLowerCase();
+
+      return matchesCategory && matchesBudget && matchesBrand && matchesCondition;
     }).toList();
 
     if (_selectedSortOption == 'Price: Lowest to Highest') {
@@ -264,8 +360,9 @@ class _HomePageState extends State<HomePage> {
           RefreshIndicator(
             onRefresh: _fetchProducts,
             color: colorPrimary,
-            edgeOffset: 120, // 👈 Pushes the spinner below the sticky bar
+            edgeOffset: 120, 
             child: CustomScrollView(
+              key: const PageStorageKey<String>('home_product_scroll_position'),
               physics: const BouncingScrollPhysics(),
               slivers: [
                 // 🛑 SPACER: Prevents first item from being hidden under the header
@@ -362,11 +459,76 @@ class _HomePageState extends State<HomePage> {
                   // 4. CATEGORIES
                   SliverToBoxAdapter(child: _buildCategoriesSection()),
 
+
+                  SliverToBoxAdapter(child: _buildBrandFilter()),
+
                   // 5. BUDGET SLIDER
                   SliverToBoxAdapter(child: _buildBudgetSliderSection()),
 
+                  SliverToBoxAdapter(child: _buildConditionFilter()),
+
+                  // if (_selectedCategory != 'All' || _selectedBrand != 'All' || _maxBudget < 250.0 || _selectedConditions.isNotEmpty)
+                  //   SliverToBoxAdapter(
+                  //     child: Center(
+                  //       child: TextButton.icon(
+                  //         onPressed: _resetFilters,
+                  //         icon: const Icon(Icons.refresh, size: 16),
+                  //         label: const Text("Reset Filters"),
+                  //         style: TextButton.styleFrom(
+                  //           foregroundColor: colorPrimary,
+                  //           textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ),
+
                   // 6. SORTING OPTIONS
                   SliverToBoxAdapter(child: _buildSortSection()),
+
+                  // SliverToBoxAdapter(child: _buildProductCount(availableProducts, soldOutProducts)),
+
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6, right: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Count left, Reset right
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Left: Product Count
+                          Expanded(
+                            child: _buildProductCount(availableProducts, soldOutProducts),
+                          ),
+                          
+                          // Right: Reset Button (Visible only when filters are active)
+                          if (_selectedCategory != 'All' || _selectedBrand != 'All' || _maxBudget < 250.0 || _selectedConditions.isNotEmpty)
+                            InkWell(
+                              onTap: _resetFilters,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: colorPrimary.withOpacity(0.1), // Used your theme color
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      "Reset All", 
+                                      style: TextStyle(
+                                        fontSize: 12, 
+                                        fontWeight: FontWeight.bold, 
+                                        color: colorPrimary 
+                                      )
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.refresh, size: 16, color: colorPrimary), 
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 15)),
 
@@ -597,6 +759,131 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildBrandFilter() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 6),
+      child: SizedBox(
+        height: 40, 
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: _brands.length,
+          itemBuilder: (context, index) {
+            final brand = _brands[index];
+            final isSelected = _selectedBrand == brand;
+            
+            return GestureDetector(
+              onTap: () => setState(() => _selectedBrand = brand),
+              child: Container(
+                margin: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? colorPrimary : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected ? colorPrimary : Colors.black.withOpacity(0.04),
+                  ),
+                  // Adds a soft lift effect when selected
+                  boxShadow: isSelected ? [
+                    BoxShadow(
+                      color: colorPrimary.withOpacity(0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
+                  ] : [],
+                ),
+                child: Center(
+                  child: Text(
+                    brand,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Manrope',
+                      color: isSelected ? Colors.white : const Color(0xFF2E2F2D).withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConditionFilter() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _isConditionDropdownOpen = !_isConditionDropdownOpen),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black.withOpacity(0.04)),
+                // Optional: Add same soft shadow as brand filter for consistency
+                boxShadow: _isConditionDropdownOpen ? [
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+                ] : [],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _selectedConditions.isEmpty 
+                        ? "Filter by Concerns" 
+                        : "${_selectedConditions.length} Concerns Selected",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 13, 
+                      fontFamily: 'Manrope',
+                      color: _selectedConditions.isEmpty ? const Color(0xFF2E2F2D).withOpacity(0.6) : colorPrimary
+                    ),
+                  ),
+                  Icon(_isConditionDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: colorPrimary),
+                ],
+              ),
+            ),
+          ),
+          
+          if (_isConditionDropdownOpen)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8), 
+              decoration: BoxDecoration(
+                color: Colors.white, 
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black.withOpacity(0.04)),
+              ),
+              child: Column(
+                children: _skinConditions.map((condition) {
+                  final isChecked = _selectedConditions.contains(condition);
+                  return SizedBox(
+                    height: 44, // Slightly taller for easier tapping
+                    child: CheckboxListTile(
+                      title: Text(condition, style: const TextStyle(fontSize: 13, fontFamily: 'Manrope')),
+                      value: isChecked,
+                      activeColor: colorPrimary,
+                      checkboxShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          if (value == true) _selectedConditions.add(condition);
+                          else _selectedConditions.remove(condition);
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBudgetSliderSection() {
     return Padding(
       padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 4),
@@ -754,6 +1041,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildProductCount(List available, List soldOut) {
+    final int count = available.length + soldOut.length;
+    
+    final bool isFiltered = _selectedCategory != 'All' || 
+                          _selectedBrand != 'All' || 
+                          _maxBudget < _absoluteMaxPrice || 
+                          _selectedConditions.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Text(
+        isFiltered ? "Showing $count products found" : "Showing all $count products",
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Manrope',
+          color: const Color(0xFF2E2F2D).withOpacity(0.5),
+        ),
+      ),
+    );
+  }
+
   Widget _buildProductCard(dynamic product, {required bool isSoldOut}) {
     final String imageTarget = product['image_url'] ?? '';
     final String prodId = product['id'].toString().trim();
@@ -767,14 +1076,27 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () async {
         // 🌟 Wait for the user to finish viewing the product page
-        await Navigator.push(
+        final bool? updatedIsWishlisted = await Navigator.push(
             context,
             MaterialPageRoute(
                 builder: (_) =>
                     ProductPage(userId: widget.userId, productId: prodId)));
+
+        if (updatedIsWishlisted != null) {
+          setState(() {
+            if (updatedIsWishlisted) {
+              wishlistedProductIds.add(prodId);
+            } else {
+              wishlistedProductIds.remove(prodId);
+            }
+          });
+        }
         
+        // await _refreshWishlistOnly();
+
         // 🌟 When they press back and return here, automatically refresh the heart states!
-        _fetchProducts(); 
+        // _fetchProducts(); 
+        // setState(() {});
       },
       child: Opacity(
         opacity: isSoldOut ? 0.6 : 1.0,
@@ -833,7 +1155,6 @@ class _HomePageState extends State<HomePage> {
                     ),
 
                   // 3. CLEAN SINGLE ANIMATED WISHLIST HEART ICON POSITIONED BUTTON
-                  // We wrap it in a single negation block so it doesn't show up on sold out items
                   if (!isSoldOut)
                     Positioned(
                       bottom: 12,
@@ -855,9 +1176,11 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 200),
+                            transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
                             child: Icon(
                               isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                              key: ValueKey<bool>(isWishlisted),
+                              // key: ValueKey<bool>(isWishlisted),
+                              key: ValueKey<String>('${prodId}_$isWishlisted'),
                               color: isWishlisted ? const Color(0xFF91462E) : colorPrimary,
                               size: 18,
                             ),

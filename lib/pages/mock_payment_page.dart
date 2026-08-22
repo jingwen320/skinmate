@@ -20,6 +20,8 @@ class MockPaymentPage extends StatefulWidget {
 
 class _MockPaymentPageState extends State<MockPaymentPage> {
   final _formKey = GlobalKey<FormState>();
+
+  final _cardHolderNameController = TextEditingController();
   final _cardNumberController = TextEditingController();
 
   final _nameController = TextEditingController();
@@ -156,6 +158,8 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
       String region = _eastMalaysia.contains(_selectedState) ? "East Malaysia" : "West Malaysia";
 
       final String finalFormattedPhone = "+60$rawPhoneInput";
+
+      // final String cardHolderName = _cardHolderNameController.text.trim();
 
       final response = await ApiService.checkout(
         userId: widget.userId,
@@ -379,6 +383,21 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
               // 💳 Dummy Gateway Card Inputs
               const Text("Card Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
+
+              TextFormField(
+                controller: _cardHolderNameController,
+                keyboardType: TextInputType.name,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(), 
+                  labelText: 'Cardholder Name', 
+                  // hintText: 'e.g. WEN NGIN', 
+                  prefixIcon: Icon(Icons.person_outline)
+                ),
+                validator: (val) => val == null || val.trim().isEmpty ? 'Please enter the name on card' : null,
+              ),
+              const SizedBox(height: 10),
+
               TextFormField(
                 controller: _cardNumberController,
                 keyboardType: TextInputType.number,
