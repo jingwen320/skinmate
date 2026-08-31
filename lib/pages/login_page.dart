@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 //import 'home_page.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
 import '../main_wrapper.dart';
+import 'dart:math';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,14 +19,146 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   
   bool _isLoading = false; 
-  bool _isObscure = true; //  MOVED HERE: Now it belongs to the State!
+  bool _isObscure = true; 
 
-  void _handleLogin() async {
+  // Triggered when user taps "Sign In"
+  void _handleLogin() {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _showSnackBar("Please fill in all fields");
       return;
     }
 
+    // Show the security challenge as a popup dialog
+    _showSecurityChallengeDialog();
+  }
+
+  // void _handleLogin() async {
+  //   if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+  //     _showSnackBar("Please fill in all fields");
+  //     return;
+  //   }
+
+  //   setState(() => _isLoading = true);
+    
+  //   try {
+  //     final res = await ApiService.login(
+  //       _emailController.text.trim(),
+  //       _passwordController.text.trim(),
+  //     );
+
+  //     if (res['status'] == 'success') {
+  //       // 1. Extract the userId from your nested JSON response
+  //       String userId = res['user']['id'].toString();
+
+  //       // 2. SAVE the session so main.dart can find it next time
+  //       await ApiService.saveUserSession(userId);
+
+  //       if (!mounted) return;
+
+  //       // 3. Use pushAndRemoveUntil to clear the "Welcome" and "Login" pages
+  //       // from the back-button history
+  //       Navigator.pushAndRemoveUntil(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (_) => MainWrapper(userId: userId),
+  //         ),
+  //         (route) => false, // This wipes the stack clean
+  //       );
+  //     } else {
+  //       _showSnackBar(res['message'] ?? 'Login failed');
+  //     }
+  //   } catch (e) {
+  //     _showSnackBar('Network error. Check your connection.');
+  //   } finally {
+  //     if (mounted) setState(() => _isLoading = false);
+  //   }
+  // }
+
+  // Popup Dialog for Math Challenge
+  void _showSecurityChallengeDialog() {
+    final random = Random();
+    final int num1 = random.nextInt(9) + 1;
+    final int num2 = random.nextInt(9) + 1;
+    final int correctAnswer = num1 + num2;
+    
+    final dialogController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // User must answer or cancel
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Security Verification', 
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Please solve this quick challenge to verify you are human:',
+                style: TextStyle(fontSize: 13, color: Color(0xFF5B5C5A)),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                '$num1 + $num2 = ?',
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF91462E)),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: dialogController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly, // Only allows 0-9 digits
+                ],
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter answer',
+                  filled: true,
+                  fillColor: const Color(0xFFF1F1EE),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF5B5C5A))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF91462E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                final userAnswer = int.tryParse(dialogController.text.trim()) ?? -999;
+                
+                Navigator.pop(dialogContext); // Close popup
+
+                if (userAnswer == correctAnswer) {
+                  // If correct, proceed with actual backend login request
+                  _executeApiLogin();
+                } else {
+                  _showSnackBar('Incorrect security answer. Please try again.');
+                }
+              },
+              child: const Text('Verify', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Actual API Call after passing the popup challenge
+  void _executeApiLogin() async {
     setState(() => _isLoading = true);
     
     try {
@@ -34,22 +168,17 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (res['status'] == 'success') {
-        // 1. Extract the userId from your nested JSON response
         String userId = res['user']['id'].toString();
-
-        // 2. SAVE the session so main.dart can find it next time
         await ApiService.saveUserSession(userId);
 
         if (!mounted) return;
 
-        // 3. Use pushAndRemoveUntil to clear the "Welcome" and "Login" pages
-        // from the back-button history
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
             builder: (_) => MainWrapper(userId: userId),
           ),
-          (route) => false, // This wipes the stack clean
+          (route) => false,
         );
       } else {
         _showSnackBar(res['message'] ?? 'Login failed');
@@ -200,7 +329,7 @@ class _LoginPageState extends State<LoginPage> {
                                 },
                               ),
                             ),
-                          ),
+                          ),                         
                           const SizedBox(height: 32),
 
                           // Login Button / Loading Indicator
@@ -251,7 +380,6 @@ class _LoginPageState extends State<LoginPage> {
     child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Color(0xFF5B5C5A))),
   );
 
-  //  UPDATED: Added Widget? suffixIcon parameter here!
   InputDecoration _inputStyle(String hint, IconData icon, Color fill, Color outline, {Widget? suffixIcon}) => InputDecoration(
     hintText: hint,
     filled: true,
