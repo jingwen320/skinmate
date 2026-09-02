@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'mock_payment_page.dart';
 import '../widgets/notification_bell.dart';
 import 'product_page.dart'; 
+import '../widgets/shipping_info_row.dart';
 
 class CartPage extends StatefulWidget {
   final String userId;
@@ -418,6 +419,63 @@ class _CartPageState extends State<CartPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Summary", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Plus Jakarta Sans')),
+            // const SizedBox(height: 16),
+
+            // TextButton.icon(
+            //   onPressed: () {
+            //     showDialog(
+            //       context: context,
+            //       builder: (BuildContext context) {
+            //         return AlertDialog(
+            //           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            //           title: const Text(
+            //             'Shipping Information',
+            //             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF91462E)),
+            //           ),
+            //           content: Column(
+            //             mainAxisSize: MainAxisSize.min,
+            //             crossAxisAlignment: CrossAxisAlignment.start,
+            //             children: const [
+            //               Text(
+            //                 'Review our delivery rates and estimated timeframes below:',
+            //                 style: TextStyle(fontSize: 13, color: Color(0xFF5B5C5A), height: 1.4),
+            //               ),
+            //               SizedBox(height: 16),
+            //               ShippingInfoRow(
+            //                 region: 'West Malaysia',
+            //                 rate: 'RM 7.50',
+            //                 timeframe: '1–3 working days',
+            //               ),
+            //               Divider(height: 24),
+            //               ShippingInfoRow(
+            //                 region: 'East Malaysia',
+            //                 rate: 'RM 15.00',
+            //                 timeframe: '3–7 working days',
+            //               ),
+            //               Divider(height: 24),
+            //               ShippingInfoRow(
+            //                 region: 'Free Shipping',
+            //                 rate: 'RM 0.00',
+            //                 timeframe: 'Orders above RM 100',
+            //               ),
+            //             ],
+            //           ),
+            //           actions: [
+            //             TextButton(
+            //               onPressed: () => Navigator.pop(context),
+            //               child: const Text('Got it', style: TextStyle(color: Color(0xFF91462E), fontWeight: FontWeight.bold)),
+            //             ),
+            //           ],
+            //         );
+            //       },
+            //     );
+            //   },
+            //   icon: const Icon(Icons.help_outline, size: 16, color: Color(0xFF91462E)),
+            //   label: const Text('Shipping Rates & Info', style: TextStyle(fontSize: 12, color: Color(0xFF91462E), fontWeight: FontWeight.bold)),
+            //   style: TextButton.styleFrom(
+            //     visualDensity: VisualDensity.compact,
+            //   ),
+            // ),
             const SizedBox(height: 16),
 
             Row(
@@ -470,6 +528,64 @@ class _CartPageState extends State<CartPage> {
                 ),
               ],
             ),
+            // const SizedBox(height: 20),
+
+            TextButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      title: const Text(
+                        'Shipping Information',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF91462E)),
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Review our delivery rates and estimated timeframes below:',
+                            style: TextStyle(fontSize: 13, color: Color(0xFF5B5C5A), height: 1.4),
+                          ),
+                          SizedBox(height: 16),
+                          ShippingInfoRow(
+                            region: 'West Malaysia',
+                            rate: 'RM 7.50',
+                            timeframe: '1–3 working days',
+                          ),
+                          Divider(height: 24),
+                          ShippingInfoRow(
+                            region: 'East Malaysia',
+                            rate: 'RM 15.00',
+                            timeframe: '3–7 working days',
+                          ),
+                          Divider(height: 24),
+                          ShippingInfoRow(
+                            region: 'Free Shipping',
+                            rate: 'RM 0.00',
+                            timeframe: 'Orders above RM 100',
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Got it', style: TextStyle(color: Color(0xFF91462E), fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+              icon: const Icon(Icons.help_outline, size: 16, color: Color(0xFF91462E)),
+              label: const Text('Shipping Rates & Info', style: TextStyle(fontSize: 12, color: Color(0xFF91462E), fontWeight: FontWeight.bold)),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+
             const SizedBox(height: 20),
 
             SizedBox(
