@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'product_page.dart';
+import 'cart_page.dart';
 
 class ProductRecommendation {
   final int id;
@@ -552,6 +553,25 @@ class _SkincareRecommendationPageState extends State<SkincareRecommendationPage>
             tabs: categories.map((cat) => Tab(text: categoryDisplayNames[cat] ?? cat)).toList(),
           ),
         ),
+
+        // 🛒 Sticky Floating Cart Icon added here
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CartPage(userId: widget.userId.toString()),
+              ),
+            );
+          },
+          backgroundColor: colorPrimary,
+          elevation: 4,
+          child: const Icon(
+            Icons.shopping_bag_outlined,
+            color: Colors.white,
+          ),
+        ),
+        
         body: TabBarView(
           children: categories.map((categorySelection) {
             // final filteredList = categorySelection == 'All'
