@@ -317,6 +317,35 @@ class ApiService {
     return json.decode(res.body);
   }
 
+  static Future<Map<String, dynamic>> subscribeRestock({
+    required String userId,
+    required String productId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/subscribe_restock.php'),
+        body: {
+          'user_id': userId,
+          'product_id': productId,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'status': 'error',
+          'message': 'Server error: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      return {
+        'status': 'error',
+        'message': 'Connection failed: $e',
+      };
+    }
+  }
+
   // ========================
   // SKINCARE RECOMMENDATION
   // ========================

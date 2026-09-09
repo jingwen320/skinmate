@@ -48,7 +48,7 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
     if (_amountAfterDiscount >= 100.00) return 0.00; // Free over RM100 after discount!
     if (_selectedState == null) return 0.00;
     
-    return _eastMalaysia.contains(_selectedState) ? 15.00 : 10.00;
+    return _eastMalaysia.contains(_selectedState) ? 15.00 : 7.50;
   }
 
   // 💰 3. Final Grand Total

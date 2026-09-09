@@ -132,7 +132,7 @@ class SkinResultPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        const Text("Overall Health Score", style: TextStyle(color: Colors.grey, letterSpacing: 1)),
+        const Text("Overall Skin Score", style: TextStyle(color: Colors.grey, letterSpacing: 1)),
       ],
     );
   }

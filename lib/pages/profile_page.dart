@@ -1,3 +1,5 @@
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -311,6 +313,36 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // 🔒 Biometric verification helper before viewing history
+  Future<void> _verifyAndNavigateToHistory() async {
+    final LocalAuthentication auth = LocalAuthentication();
+    
+    try {
+      final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
+      final bool canAuthenticate = canAuthenticateWithBiometrics || await auth.isDeviceSupported();
+
+      if (!canAuthenticate) {
+        // Fallback directly if device hardware doesn't support biometrics/lock
+        widget.onNavigateToHistory();
+        return;
+      }
+
+      final bool didAuthenticate = await auth.authenticate(
+        localizedReason: 'Authenticate with biometrics or PIN to view your private skin analysis report history',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false,
+        ),
+      );
+
+      if (didAuthenticate) {
+        widget.onNavigateToHistory();
+      }
+    } on PlatformException catch (e) {
+      debugPrint("Biometric authentication error: ${e.message}");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const colorPrimary = Color(0xFF91462E);
@@ -483,7 +515,8 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               // 🌟 Using TextButton.icon to combine the label and the icon
               TextButton.icon(
-                onPressed: widget.onNavigateToHistory,
+                // onPressed: widget.onNavigateToHistory,
+                onPressed: _verifyAndNavigateToHistory,
                 icon: const Icon(Icons.history, color: Color(0xFFFE9D7F), size: 20),
                 label: const Text(
                   "History", 
