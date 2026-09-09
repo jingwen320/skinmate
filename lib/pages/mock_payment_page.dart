@@ -29,6 +29,7 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
   final _phoneController = TextEditingController();
   
   bool _isProcessing = false;
+  bool _isLoadingDefaultAddress = true;
   String? _selectedState;
 
   // 📍 Malaysian logistics split
@@ -115,6 +116,55 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
   //     );
   //   }
   // }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDefaultAddress();
+  }
+
+  Future<void> _fetchDefaultAddress() async {
+    setState(() => _isLoadingDefaultAddress = true);
+    try {
+      final addresses = await ApiService.getAddresses(widget.userId);
+      if (addresses.isNotEmpty) {
+        // Grab the default address, or fallback to the first one
+        final defaultAddr = addresses.firstWhere(
+          (addr) => addr['is_default'] == 1,
+          orElse: () => addresses.first,
+        );
+
+        if (defaultAddr != null) {
+          _nameController.text = defaultAddr['recipient_name'] ?? '';
+          
+          // Strip country code if present to match the +60 prefix field layout
+          String rawPhone = defaultAddr['phone'] ?? '';
+          if (rawPhone.startsWith('60')) {
+            rawPhone = rawPhone.substring(2);
+          } else if (rawPhone.startsWith('+60')) {
+            rawPhone = rawPhone.substring(3);
+          }
+          _phoneController.text = rawPhone;
+
+          _addr1Controller.text = defaultAddr['address_line_1'] ?? '';
+          _addr2Controller.text = defaultAddr['address_line_2'] ?? '';
+          _postcodeController.text = defaultAddr['postcode'] ?? '';
+          _cityController.text = defaultAddr['city'] ?? '';
+
+          final stateVal = defaultAddr['state'];
+          if ([..._westMalaysia, ..._eastMalaysia].contains(stateVal)) {
+            _selectedState = stateVal;
+          }
+        }
+      }
+    } catch (e) {
+      // Fail silently and let user fill manually if network errors occur
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDefaultAddress = false);
+      }
+    }
+  }
 
   void _simulatePayment() async {
     // 1. Kick off the primary Form validation check
@@ -250,7 +300,9 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
         elevation: 0,
         foregroundColor: colorPrimary,
       ),
-      body: SingleChildScrollView(
+      body: _isLoadingDefaultAddress
+      ? const Center(child: CircularProgressIndicator(color: Color(0xFF91462E))) // 👈 ADD THIS
+      : SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Form(
           key: _formKey,
@@ -366,6 +418,7 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
               const SizedBox(height: 10),
 
               DropdownButtonFormField<String>(
+                initialValue: _selectedState,
                 decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'State'),
                 items: [..._westMalaysia, ..._eastMalaysia].map((state) {
                   return DropdownMenuItem(value: state, child: Text(state));
@@ -407,23 +460,86 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
               ),
               const SizedBox(height: 10),
 
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: TextFormField(
+              //         keyboardType: TextInputType.number,
+              //         inputFormatters: [FilteringTextInputFormatter.digitsOnly, CardExpirationFormatter()],
+              //         decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Expiry Date', hintText: 'MM/YY'),
+              //         validator: (val) => val!.length < 5 ? 'Invalid' : null,
+              //       ),
+              //     ),
+              //     const SizedBox(width: 10),
+              //     Expanded(
+              //       child: TextFormField(
+              //         keyboardType: TextInputType.number,
+              //         inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+              //         decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'CVV', hintText: '123'),
+              //         validator: (val) => val!.length < 3 ? 'Invalid CVV' : null,
+              //       ),
+              //     ),
+              //   ],
+              // ),
+
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, CardExpirationFormatter()],
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Expiry Date', hintText: 'MM/YY'),
-                      validator: (val) => val!.length < 5 ? 'Invalid' : null,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly, 
+                        CardExpirationFormatter(),
+                      ],
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(), 
+                        labelText: 'Expiry Date', 
+                        hintText: 'MM/YY',
+                      ),
+                      validator: (val) {
+                        if (val == null || val.length < 5) {
+                          return 'Invalid';
+                        }
+                        
+                        final parts = val.split('/');
+                        if (parts.length != 2) return 'Invalid';
+                        
+                        final int? month = int.tryParse(parts[0]);
+                        final int? year = int.tryParse('20${parts[1]}');
+                        
+                        if (month == null || year == null || month < 1 || month > 12) {
+                          return 'Invalid date';
+                        }
+
+                        // Automatically detect current system year and month
+                        final now = DateTime.now();
+                        final int currentYear = now.year;
+                        final int currentMonth = now.month;
+
+                        if (year < currentYear || (year == currentYear && month < currentMonth)) {
+                          return 'Card has expired';
+                        }
+
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextFormField(
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'CVV', hintText: '123'),
-                      validator: (val) => val!.length < 3 ? 'Invalid CVV' : null,
+                      obscureText: true,
+                      obscuringCharacter: '•',
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly, 
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(), 
+                        labelText: 'CVV', 
+                        hintText: '123',
+                      ),
+                      validator: (val) => (val == null || val.length < 3) ? 'Invalid CVV' : null,
                     ),
                   ),
                 ],

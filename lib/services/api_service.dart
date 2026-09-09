@@ -940,21 +940,21 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getChatMessages(int userId) async {
-  try {
-    final response = await http.get(Uri.parse('$baseUrl/get_messages.php?user_id=$userId'));
-    
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['status'] == 'success') {
-        return data['messages'] ?? [];
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/get_messages.php?user_id=$userId'));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          return data['messages'] ?? [];
+        }
       }
+      return [];
+    } catch (e) {
+      debugPrint("Error fetching chat messages: $e");
+      return [];
     }
-    return [];
-  } catch (e) {
-    debugPrint("Error fetching chat messages: $e");
-    return [];
   }
-}
 
   static Future<Map<String, dynamic>> sendChatMessage({
     required int userId,
@@ -999,5 +999,66 @@ class ApiService {
       debugPrint("Error closing chat room: $e");
       return false;
     }
+  }
+
+  static Future<Map<String, dynamic>> compareScans(String scanId1, String scanId2) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/compare_scans.php?scan_id_1=$scanId1&scan_id_2=$scanId2'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'status': 'error', 'message': 'Server communication error'};
+    } catch (e) {
+      return {'status': 'error', 'message': e.toString()};
+    }
+  }
+
+  static Future<List<dynamic>> getAddresses(String userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/address_api.php?action=get&user_id=$userId'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') return data['addresses'] ?? [];
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> saveAddress(Map<String, dynamic> payload) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/address_api.php?action=save'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      );
+      return jsonDecode(response.body)['status'] == 'success';
+    } catch (_) {}
+    return false;
+  }
+
+  static Future<bool> deleteAddress(String addressId, String userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/address_api.php?action=delete'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"id": addressId, "user_id": userId}),
+      );
+      return jsonDecode(response.body)['status'] == 'success';
+    } catch (_) {}
+    return false;
+  }
+
+  static Future<bool> setDefaultAddress(String addressId, String userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/address_api.php?action=set_default'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"id": addressId, "user_id": userId}),
+      );
+      return jsonDecode(response.body)['status'] == 'success';
+    } catch (_) {}
+    return false;
   }
 }
