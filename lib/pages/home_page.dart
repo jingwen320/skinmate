@@ -154,6 +154,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
     
     // 2. Fetch User Profile for the Name
     final profileRes = await ApiService.getProfile(widget.userId);
+    print('DEBUG PROFILE RES: $profileRes');
 
     // 3. 🌟 Fetch User Wishlist to sync heart states on load
     final wishlistRes = await ApiService.getWishlist(widget.userId);
@@ -164,8 +165,11 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
       
       // 🌟 Handle User Name
       if (profileRes['status'] == 'success') {
-        // We convert to uppercase to match your design style
         _userName = (profileRes['user']['name'] ?? "User").toUpperCase();
+        // final userData = profileRes['user'];
+        // final String rawName = (userData is Map ? userData['name'] : null) ?? profileRes['name'] ?? "User";
+        
+        // _userName = rawName.toUpperCase();
       }
 
       // 🌟 UPDATED: Populate our wishlist tracker set accurately

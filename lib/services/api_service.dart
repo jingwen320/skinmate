@@ -504,6 +504,7 @@ class ApiService {
     required String city,
     required String state,
     required String region,
+    int? voucherId,
   }) async {
     try {
       var response = await http.post(
@@ -525,6 +526,7 @@ class ApiService {
           'region': region,
           'phone': phone,
           'name': name,
+          'voucher_id': voucherId,
         }),
       );
 
@@ -1060,5 +1062,43 @@ class ApiService {
       return jsonDecode(response.body)['status'] == 'success';
     } catch (_) {}
     return false;
+  }
+
+  // 🎟️ Fetch Vouchers for a User
+  static Future<Map<String, dynamic>> getVouchers(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/get_vouchers.php?user_id=$userId'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'status': 'error', 'message': 'Failed to load vouchers'};
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': e.toString()};
+    }
+  }
+
+  // 🎫 Apply/Validate Voucher at Checkout
+  static Future<Map<String, dynamic>> applyVoucher(String userId, String voucherCode, double cartSubtotal) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/apply_voucher.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'voucher_code': voucherCode,
+          'cart_subtotal': cartSubtotal,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'status': 'error', 'message': 'Failed to apply voucher'};
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': e.toString()};
+    }
   }
 }

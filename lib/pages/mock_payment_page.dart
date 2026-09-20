@@ -5,13 +5,15 @@ import '../services/api_service.dart';
 class MockPaymentPage extends StatefulWidget {
   final String userId;
   final double cartSubtotal; 
-  final double discount; // 👈 ADD THIS!
+  final double discount; 
+  final int? voucherId;
 
   const MockPaymentPage({
     super.key, 
     required this.userId, 
     required this.cartSubtotal,
-    required this.discount, // 👈 ADD THIS!
+    required this.discount, 
+    this.voucherId,
   });
 
   @override
@@ -225,6 +227,7 @@ class _MockPaymentPageState extends State<MockPaymentPage> {
         city: _cityController.text.trim(),
         state: _selectedState!,
         region: region,
+        voucherId: widget.voucherId,
       );
 
       if (mounted) {
