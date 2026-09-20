@@ -21,6 +21,10 @@ class _CartPageState extends State<CartPage> {
   double _discount = 0.0;
   final String _shippingText = "COMPLIMENTARY";
 
+  // 🎟️ New state variables for voucher tracking
+  int? _selectedVoucherId;
+  String? _appliedVoucherCode;
+
   @override
   void initState() {
     super.initState();
@@ -91,22 +95,153 @@ class _CartPageState extends State<CartPage> {
   // 💰 3. Compute final balance
   double get _finalTotal => _subtotal - _discount;
 
+  // 📋 Show Voucher Selector Bottom Sheet
+  void _showVoucherSelector() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFFF1F1EE),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          height: 450,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "My Voucher Wallet",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Plus Jakarta Sans',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: ApiService.getVouchers(widget.userId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Color(0xFF91462E)));
+                    }
+                    
+                    if (!snapshot.hasData || snapshot.data!['status'] != 'success') {
+                      return const Center(child: Text("Failed to load vouchers.", style: TextStyle(color: Colors.grey)));
+                    }
+
+                    // 🌟 Pull directly from the 'active' array inside the keyed map
+                    final Map<String, dynamic> vouchersMap = snapshot.data!['vouchers'] ?? {};
+                    final List<dynamic> activeVouchers = vouchersMap['active'] ?? [];
+
+                    if (activeVouchers.isEmpty) {
+                      return const Center(child: Text("No active vouchers available.", style: TextStyle(color: Colors.grey)));
+                    }
+
+                    return ListView.builder(
+                      itemCount: activeVouchers.length,
+                      itemBuilder: (context, index) {
+                        final v = activeVouchers[index];
+                        
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            title: Text(
+                              v['title'] ?? 'Voucher',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text("Code: ${v['voucher_code'] ?? ''}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                Text("Expires: ${v['expires_at'] ?? ''}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                            trailing: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedVoucherId = int.tryParse(v['voucher_id'].toString());
+                                  _appliedVoucherCode = v['voucher_code'];
+                                  _promoController.text = _appliedVoucherCode ?? '';
+                                  
+                                  final double discountVal = double.tryParse(v['discount_value'].toString()) ?? 0.0;
+                                  if (v['discount_type'] == 'percentage') {
+                                    _discount = _subtotal * (discountVal / 100);
+                                  } else {
+                                    _discount = discountVal;
+                                  }
+                                });
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Voucher $_appliedVoucherCode applied!')),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF91462E),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                              ),
+                              child: const Text("Apply", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // 🎟️ 4. Apply promo code locally
   void _applyPromoCode(String code) {
     setState(() {
       if (code.toUpperCase() == "HELLOSKINMATE") {
+        _selectedVoucherId = null; 
+        _appliedVoucherCode = code;
         _discount = _subtotal * 0.10; // 10% discount
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Promo code HELLOSKINMATE applied!')),
         );
       } else {
         _discount = 0.0;
+        _selectedVoucherId = null;
+        _appliedVoucherCode = null;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid promo code')),
         );
       }
     });
   }
+
+  // void _applyPromoCode(String code) {
+  //   setState(() {
+  //     if (code.toUpperCase() == "HELLOSKINMATE") {
+  //       _discount = _subtotal * 0.10; // 10% discount
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Promo code HELLOSKINMATE applied!')),
+  //       );
+  //     } else {
+  //       _discount = 0.0;
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Invalid promo code')),
+  //       );
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -478,32 +613,82 @@ class _CartPageState extends State<CartPage> {
             // ),
             const SizedBox(height: 16),
 
-            Row(
+            // Row(
+            //   children: [
+            //     Expanded(
+            //       child: TextField(
+            //         controller: _promoController,
+            //         decoration: InputDecoration(
+            //           hintText: "Promo code",
+            //           filled: true,
+            //           fillColor: Colors.white,
+            //           border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+            //           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            //         ),
+            //       ),
+            //     ),
+            //     const SizedBox(width: 12),
+            //     ElevatedButton(
+            //       onPressed: () {
+            //         _applyPromoCode(_promoController.text.trim());
+            //       },
+            //       style: ElevatedButton.styleFrom(
+            //         backgroundColor: const Color(0xFFFEC1D6), 
+            //         foregroundColor: const Color(0xFF663A4B),
+            //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            //         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+            //       ),
+            //       child: const Text("APPLY", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            //     ),
+            //   ],
+            // ),
+            
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _promoController,
-                    decoration: InputDecoration(
-                      hintText: "Promo code",
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _promoController,
+                        decoration: InputDecoration(
+                          hintText: "Enter promo code",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        _applyPromoCode(_promoController.text.trim());
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFEC1D6), 
+                        foregroundColor: const Color(0xFF663A4B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+                      ),
+                      child: const Text("APPLY", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _showVoucherSelector,
+                    icon: const Icon(Icons.wallet, size: 14),
+                    label: const Text("Select from Wallet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF91462E),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: () {
-                    _applyPromoCode(_promoController.text.trim());
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFEC1D6), 
-                    foregroundColor: const Color(0xFF663A4B),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
-                  ),
-                  child: const Text("APPLY", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             ),
@@ -607,7 +792,8 @@ class _CartPageState extends State<CartPage> {
                       builder: (context) => MockPaymentPage(
                         userId: widget.userId,
                         cartSubtotal: _subtotal,
-                        discount: _discount, // 👈 PASS THE DISCOUNT VARIABLE HERE!
+                        discount: _discount, 
+                        voucherId: _selectedVoucherId,
                       ),
                     ),
                   );

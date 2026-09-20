@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'skin_history_detail_page.dart'; // 👈 Import the detail page
+import 'skin_history_detail_page.dart'; 
+import 'skin_comparison_page.dart';
 
 class SkinHistoryPage extends StatelessWidget {
   final String userId;
@@ -30,6 +31,32 @@ class SkinHistoryPage extends StatelessWidget {
         backgroundColor: colorBackground,
         elevation: 0,
         foregroundColor: colorPrimary,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: colorPrimary,
+                backgroundColor: const Color(0xFFFEC1D6), 
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              icon: const Icon(Icons.compare_rounded, size: 14),
+              label: const Text(
+                "COMPARE",
+                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SkinComparisonPage(userId: userId),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       body: FutureBuilder<List<dynamic>>(
         future: ApiService.getSkinHistory(userId),

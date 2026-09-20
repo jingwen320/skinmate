@@ -297,7 +297,7 @@ class _ScanPageState extends State<ScanPage> with SingleTickerProviderStateMixin
       var multipartFile = await http.MultipartFile.fromPath(
         'image', 
         _imageFile!.path,
-        contentType: MediaType('image', 'jpeg'), // Match your PHP check
+        contentType: MediaType('image', 'jpeg'), // Match PHP check
       );
       request.files.add(multipartFile);
 

@@ -12,6 +12,8 @@ import 'customer_support_page.dart';
 import '../services/notification_service.dart'; 
 import 'package:permission_handler/permission_handler.dart';
 import '../widgets/notification_bell.dart';
+import 'address_management_page.dart';
+import 'voucher_wallet_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userId;
@@ -383,7 +385,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       _buildRecentOrders(),
                       const SizedBox(height: 16),
+                      _buildVoucherWalletCard(colorOnSurface), 
+                      const SizedBox(height: 16),
                       _buildWishlist(colorOnSurface),
+                      const SizedBox(height: 16),
+                      _buildAddressManagementCard(colorOnSurface),
                       const SizedBox(height: 16),
                       _buildChangePassword(colorOnSurface),
                       const SizedBox(height: 16),
@@ -654,6 +660,39 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildAddressManagementCard(Color colorOnSurface) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddressManagementPage(userId: widget.userId),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFE8E8E5),
+            foregroundColor: colorOnSurface,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.home, color: colorOnSurface),
+              const SizedBox(width: 12),
+              const Text("Address Management", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              const Icon(Icons.chevron_right, size: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRemindersCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -832,6 +871,43 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVoucherWalletCard(Color colorOnSurface) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VoucherWalletPage(userId: widget.userId),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        // backgroundColor: const Color(0xFFE8E8E5),
+        backgroundColor: Colors.white,
+        foregroundColor: colorOnSurface,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.discount, color: Color(0xFF91462E)),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text("My Vouchers", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              SizedBox(height: 2),
+              Text("View active, used & expired vouchers", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          const Spacer(),
+          const Icon(Icons.chevron_right, size: 16),
+        ],
+      ),
     );
   }
 
