@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:skinmate/pages/scan_page.dart';
 import '../services/api_service.dart';
 
 class SkinComparisonPage extends StatefulWidget {
@@ -448,6 +449,16 @@ class _SkinComparisonPageState extends State<SkinComparisonPage> {
     final Map<String, dynamic> conditionDiffs = result['condition_changes'] ?? {};
     final bool isPositiveProgress = healthDiff >= 0;
 
+    final String evaluation = result['evaluation'] ?? '';
+    final String nextAction = result['next_action'] ?? '';
+    final bool isSignificantDrop = healthDiff <= -10;
+    final bool isSignificantImprovement = healthDiff >= 10;
+
+    // final targetSkinType = older['skin_type'] ?? 'All';
+
+    final String olderSkinType = older['skin_type'] ?? 'Unknown';
+    final String newerSkinType = newer['skin_type'] ?? 'Unknown';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -502,16 +513,28 @@ class _SkinComparisonPageState extends State<SkinComparisonPage> {
           const SizedBox(height: 18),
 
           // Visual comparison side-by-side display
+          // Row(
+          //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          //   children: [
+          //     _buildResultPreviewCard("Before", older['image'], older['created_at'], olderScore),
+          //     Container(
+          //       padding: const EdgeInsets.all(8),
+          //       decoration: BoxDecoration(color: _colorSurface, shape: BoxShape.circle),
+          //       child: Icon(Icons.arrow_forward_rounded, color: _colorPrimary, size: 18),
+          //     ),
+          //     _buildResultPreviewCard("After", newer['image'], newer['created_at'], newerScore),
+          //   ],
+          // ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildResultPreviewCard("Before", older['image'], older['created_at'], olderScore),
+              _buildResultPreviewCard("Before", older['image'], older['created_at'], olderScore, olderSkinType),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: _colorSurface, shape: BoxShape.circle),
                 child: Icon(Icons.arrow_forward_rounded, color: _colorPrimary, size: 18),
               ),
-              _buildResultPreviewCard("After", newer['image'], newer['created_at'], newerScore),
+              _buildResultPreviewCard("After", newer['image'], newer['created_at'], newerScore, newerSkinType),
             ],
           ),
           const Padding(
@@ -588,12 +611,94 @@ class _SkinComparisonPageState extends State<SkinComparisonPage> {
               ),
             );
           }),
+
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+          const SizedBox(height: 16),
+
+          // Executive summary and next steps
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isSignificantDrop 
+                  ? Colors.red.withOpacity(0.04) 
+                  : (isSignificantImprovement ? Colors.green.withOpacity(0.04) : _colorSurface),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSignificantDrop 
+                    ? Colors.red.withOpacity(0.2) 
+                    : (isSignificantImprovement ? Colors.green.withOpacity(0.2) : Colors.grey.withOpacity(0.2)),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isSignificantDrop 
+                          ? Icons.warning_amber_rounded 
+                          : (isSignificantImprovement ? Icons.verified_rounded : Icons.info_outline_rounded),
+                      size: 18,
+                      color: isSignificantDrop 
+                          ? Colors.red[700] 
+                          : (isSignificantImprovement ? Colors.green[700] : _colorPrimary),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      evaluation,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isSignificantDrop 
+                            ? Colors.red[700] 
+                            : (isSignificantImprovement ? Colors.green[700] : Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  nextAction,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
+                ),
+                
+                // Show action buttons if a significant drop occurs (<= -10)
+                if (isSignificantDrop) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ScanPage(userId: widget.userId),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.camera_alt_outlined, size: 15),
+                          label: const Text("Retake Scan", style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red[700],
+                            side: BorderSide(color: Colors.red[300]!),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildResultPreviewCard(String label, String imagePath, String date, double score) {
+  Widget _buildResultPreviewCard(String label, String imagePath, String date, double score, String skinType) {
     return Column(
       children: [
         Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600])),
@@ -636,6 +741,8 @@ class _SkinComparisonPageState extends State<SkinComparisonPage> {
         ),
         const SizedBox(height: 6),
         Text(date.split(' ')[0], style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text(skinType, style: TextStyle(fontSize: 9, color: Colors.grey[500], fontWeight: FontWeight.w500)),
       ],
     );
   }
